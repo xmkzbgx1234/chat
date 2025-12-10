@@ -19,6 +19,16 @@ ChatService::ChatService()
                                         std::placeholders::_1, std::placeholders::_2, std::placeholders::_3)});
     _msgHandlerMap.insert({2, std::bind(&ChatService::regist, this,
                                         std::placeholders::_1, std::placeholders::_2, std::placeholders::_3)});
+    _msgHandlerMap.insert({3, std::bind(&ChatService::oneChat, this,
+                                        std::placeholders::_1, std::placeholders::_2, std::placeholders::_3)});
+    _msgHandlerMap.insert({4, std::bind(&ChatService::addFriend, this,
+                                        std::placeholders::_1, std::placeholders::_2, std::placeholders::_3)});
+    _msgHandlerMap.insert({5, std::bind(&ChatService::createGroup, this,
+                                        std::placeholders::_1, std::placeholders::_2, std::placeholders::_3)});
+    _msgHandlerMap.insert({6, std::bind(&ChatService::addGroup, this,
+                                        std::placeholders::_1, std::placeholders::_2, std::placeholders::_3)});
+    _msgHandlerMap.insert({7, std::bind(&ChatService::groupChat, this,
+                                        std::placeholders::_1, std::placeholders::_2, std::placeholders::_3)});
     _userModel = UserModel();
 }
 
@@ -158,6 +168,20 @@ void ChatService::addGroup(const TcpConnectionPtr &conn, json &js, Timestamp tim
         response["errmsg"] = "加入群组失败";
         conn->send(response.dump());
     }
+}
+
+void ChatService::handleRedisMessage(int channel, const string &message){
+    lock_guard<mutex> lock(_connMutex);
+    cout << "handleRedisMessage: " << "channel: " << channel << ", message: " << message << endl;
+    auto it = _userConnMap.find(channel);
+    if (it != _userConnMap.end())
+    {
+        it->second->send(message);
+        return;
+    }
+
+    // 存储该用户的离线消息
+    _offLineMsgModel.insert(channel, message);
 }
 
 
