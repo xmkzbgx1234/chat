@@ -1,6 +1,6 @@
-
 aux_source_directory(. SRC_LIST)
 aux_source_directory(./db DB_LIST)
+aux_source_directory(../common COMMON_LIST)
 
 add_executable(chat_server ${SRC_LIST} ${DB_LIST})
 

@@ -1,0 +1,7 @@
+/home/xmk/Desktop/code/chat/build/CMakeFiles/edit_cache.dir
+/home/xmk/Desktop/code/chat/build/CMakeFiles/rebuild_cache.dir
+/home/xmk/Desktop/code/chat/build/src/CMakeFiles/edit_cache.dir
+/home/xmk/Desktop/code/chat/build/src/CMakeFiles/rebuild_cache.dir
+/home/xmk/Desktop/code/chat/build/src/server/CMakeFiles/chat_server.dir
+/home/xmk/Desktop/code/chat/build/src/server/CMakeFiles/edit_cache.dir
+/home/xmk/Desktop/code/chat/build/src/server/CMakeFiles/rebuild_cache.dir

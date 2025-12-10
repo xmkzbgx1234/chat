@@ -1,0 +1,32 @@
+[
+{
+  "directory": "/home/xmk/Desktop/code/chat/build/src/server",
+  "command": "/usr/bin/g++  -I/home/xmk/Desktop/code/chat/include -I/home/xmk/Desktop/code/chat/include/server -I/home/xmk/Desktop/code/chat/include/server/db -g -std=gnu++11 -o CMakeFiles/chat_server.dir/User.cc.o -c /home/xmk/Desktop/code/chat/src/server/User.cc",
+  "file": "/home/xmk/Desktop/code/chat/src/server/User.cc"
+},
+{
+  "directory": "/home/xmk/Desktop/code/chat/build/src/server",
+  "command": "/usr/bin/g++  -I/home/xmk/Desktop/code/chat/include -I/home/xmk/Desktop/code/chat/include/server -I/home/xmk/Desktop/code/chat/include/server/db -g -std=gnu++11 -o CMakeFiles/chat_server.dir/UserModel.cc.o -c /home/xmk/Desktop/code/chat/src/server/UserModel.cc",
+  "file": "/home/xmk/Desktop/code/chat/src/server/UserModel.cc"
+},
+{
+  "directory": "/home/xmk/Desktop/code/chat/build/src/server",
+  "command": "/usr/bin/g++  -I/home/xmk/Desktop/code/chat/include -I/home/xmk/Desktop/code/chat/include/server -I/home/xmk/Desktop/code/chat/include/server/db -g -std=gnu++11 -o CMakeFiles/chat_server.dir/chat_server.cc.o -c /home/xmk/Desktop/code/chat/src/server/chat_server.cc",
+  "file": "/home/xmk/Desktop/code/chat/src/server/chat_server.cc"
+},
+{
+  "directory": "/home/xmk/Desktop/code/chat/build/src/server",
+  "command": "/usr/bin/g++  -I/home/xmk/Desktop/code/chat/include -I/home/xmk/Desktop/code/chat/include/server -I/home/xmk/Desktop/code/chat/include/server/db -g -std=gnu++11 -o CMakeFiles/chat_server.dir/chat_service.cc.o -c /home/xmk/Desktop/code/chat/src/server/chat_service.cc",
+  "file": "/home/xmk/Desktop/code/chat/src/server/chat_service.cc"
+},
+{
+  "directory": "/home/xmk/Desktop/code/chat/build/src/server",
+  "command": "/usr/bin/g++  -I/home/xmk/Desktop/code/chat/include -I/home/xmk/Desktop/code/chat/include/server -I/home/xmk/Desktop/code/chat/include/server/db -g -std=gnu++11 -o CMakeFiles/chat_server.dir/main.cc.o -c /home/xmk/Desktop/code/chat/src/server/main.cc",
+  "file": "/home/xmk/Desktop/code/chat/src/server/main.cc"
+},
+{
+  "directory": "/home/xmk/Desktop/code/chat/build/src/server",
+  "command": "/usr/bin/g++  -I/home/xmk/Desktop/code/chat/include -I/home/xmk/Desktop/code/chat/include/server -I/home/xmk/Desktop/code/chat/include/server/db -g -std=gnu++11 -o CMakeFiles/chat_server.dir/db/db.cc.o -c /home/xmk/Desktop/code/chat/src/server/db/db.cc",
+  "file": "/home/xmk/Desktop/code/chat/src/server/db/db.cc"
+}
+]
