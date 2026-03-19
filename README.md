@@ -31,6 +31,18 @@
    ```
 2. 使用客户端连接服务器并进行登录、注册、添加好友、创建和加入群组等操作。
 
+#### 增量同步提交
+1. 可以使用 `scripts/sync-daily.ps1` 从 `F:\code\clion\chat\chat1\chat2` 复制指定文件或目录到当前仓库。
+2. 示例：
+   ```powershell
+   powershell -ExecutionPolicy Bypass -File .\scripts\sync-daily.ps1 -Items src include README.md
+   ```
+3. 如果需要一次完成暂存、提交和推送：
+   ```powershell
+   powershell -ExecutionPolicy Bypass -File .\scripts\sync-daily.ps1 -Items src include -Stage -CommitMessage "sync part 1" -Push
+   ```
+4. 脚本会先推送到 Gitee 的 `origin`，再推送到 GitHub 仓库地址 `https://github.com/xmkzbgx1234/chat.git`。
+
 #### 参与贡献
 1. Fork 本仓库。
 2. 新建 Feat_xxx 分支。
