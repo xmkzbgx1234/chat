@@ -22,10 +22,14 @@ MySQL::~MySQL()
 	}
 }
 
-bool MySQL::connect()
+bool MySQL::connect(string ip,
+	unsigned short port,
+	string user,
+	string password,
+	string dbname)
 {
-	MYSQL *p = mysql_real_connect(_conn, server.c_str(), user.c_str(),
-		password.c_str(), dbname.c_str(), 3306, nullptr, 0);
+	MYSQL *p = mysql_real_connect(_conn, ip.c_str(), user.c_str(),
+		password.c_str(), dbname.c_str(), port, nullptr, 0);
 	if (p == nullptr) {
 		LOG_INFO << __FILE__ << ":" << __LINE__ << ":" << "mysql_real_connect failed:";
 		return false;

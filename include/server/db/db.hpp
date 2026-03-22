@@ -5,17 +5,12 @@
 #include <string>
 #include <ctime>
 
-static std::string server = "127.0.0.1";
-static std::string user = "root";
-static std::string password = "123456";
-static std::string dbname = "chat";
-
 class MySQL
 {
 public:
 	MySQL();
 	~MySQL();
-	bool connect();
+	bool connect(std::string ip, unsigned short port, std::string user, std::string password, std::string dbname);
 	bool update(std::string sql);
 	MYSQL_RES* query(std::string sql);
 
