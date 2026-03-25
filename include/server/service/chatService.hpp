@@ -1,0 +1,30 @@
+#ifndef CHAT_SERVICE_HPP
+#define CHAT_SERVICE_HPP
+
+#include <unordered_map>
+#include <functional>
+#include <muduo/net/TcpConnection.h>
+#include <nlohmann/json.hpp>
+#include <mutex>
+#include "baseService.hpp"
+#include "userModel.hpp"
+#include "offLineMsgModel.hpp"
+#include "friendModel.hpp"
+#include "groupModel.hpp"
+#include "redis.hpp"
+#include "onlineUserManager.hpp"
+
+class ChatService : public BaseService{
+public:
+    // 构造函数
+    ChatService(UserModel* userModel, OffLineMsgModel* offLineMsgModel,
+                             FriendModel* friendModel, GroupModel* groupModel,
+                             Redis* redis, OnlineUserManager* onlineUserManager);
+    ~ChatService() = default;
+    // 处理消息
+    void handleMessage(const muduo::net::TcpConnectionPtr &conn, nlohmann::json &js, muduo::Timestamp time) override;
+    void oneChat(const muduo::net::TcpConnectionPtr& conn, nlohmann::json &js, muduo::Timestamp time);
+    void groupChat(const muduo::net::TcpConnectionPtr& conn, nlohmann::json &js, muduo::Timestamp time);
+};
+
+#endif

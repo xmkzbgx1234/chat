@@ -137,15 +137,57 @@ bool Redis::unsubscribe(const int channel){
 }
 
 // 独立线程监听订阅消息
-void Redis::observer_channel_message(){
+void Redis::observer_channel_message() {
     redisReply *reply = nullptr;
-    while(REDIS_OK == redisGetReply(_subscribe_context, (void **)&reply)){
-        if(reply != nullptr){
-            if(reply->element[2] != nullptr){
-                notify_message_handler(atoi(reply->element[1]->str), reply->element[2]->str);
-            }
+    while (REDIS_OK == redisGetReply(_subscribe_context, (void **)&reply)) {
+        // 1. 基础校验：reply有效、是数组类型、至少有3个元素
+        if (reply == nullptr || 
+            reply->type != REDIS_REPLY_ARRAY || 
+            reply->elements < 3) {
             freeReplyObject(reply);
+            continue;
         }
+
+        // 2. 获取消息类型（element[0]），仅处理"message"类型
+        redisReply *msg_type_reply = reply->element[0];
+        if (msg_type_reply == nullptr || 
+            msg_type_reply->type != REDIS_REPLY_STRING || 
+            msg_type_reply->str == nullptr) {
+            freeReplyObject(reply);
+            continue;
+        }
+        std::string msg_type = msg_type_reply->str;
+        if (msg_type != "message") {
+            // 非业务消息（如subscribe/unsubscribe），可忽略或打日志
+            freeReplyObject(reply);
+            continue;
+        }
+
+        // 3. 校验频道（element[1]）：必须是有效字符串
+        redisReply *channel_reply = reply->element[1];
+        if (channel_reply == nullptr || 
+            channel_reply->type != REDIS_REPLY_STRING || 
+            channel_reply->str == nullptr) {
+            freeReplyObject(reply);
+            continue;
+        }
+
+        // 4. 校验消息内容（element[2]）：必须是有效字符串
+        redisReply *content_reply = reply->element[2];
+        if (content_reply == nullptr || 
+            content_reply->type != REDIS_REPLY_STRING || 
+            content_reply->str == nullptr) {
+            freeReplyObject(reply);
+            continue;
+        }
+
+        // 5. 安全调用消息处理器
+        int channel = atoi(channel_reply->str);
+        std::string content = content_reply->str;
+        notify_message_handler(channel, content);
+
+        // 释放reply资源
+        freeReplyObject(reply);
     }
 }
 

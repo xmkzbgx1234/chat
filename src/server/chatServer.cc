@@ -2,8 +2,8 @@
 #include <string>
 #include <functional>
 #include <nlohmann/json.hpp>
-#include "chat_server.hpp"  
-#include "chat_service.hpp"
+#include "chatServer.hpp"  
+#include "IService.hpp"
 
 using namespace std;
 using namespace placeholders;
@@ -33,6 +33,8 @@ void ChatServer::onConnection(const TcpConnectionPtr & conn){
     else{
         std::cout << conn->peerAddress().toIpPort() << " -> "
              << conn->localAddress().toIpPort() << " state:offline" << std::endl;
+        // 处理客户端异常退出
+        IService::instance()->ClientCloseException(conn);
         conn->shutdown();
     }
 }
@@ -46,11 +48,9 @@ void ChatServer::onMessage(const TcpConnectionPtr & conn,
     json js = json::parse(msg);
     // 通过json["msgid"] 判断消息类型，进行不同的server handler
     // 完全解耦网络模块和业务模块
-    auto msgHandler = ChatService::instance()->getHandler(js["msgid"].get<int>());
+    auto msgHandler = IService::instance()->getHandler(js["msgid"].get<int>());
     // 回调消息处理方法
     if(msgHandler){
         msgHandler(conn, js, receiveTime);
     }
-    // 回显数据
-    conn->send(msg);
 }
