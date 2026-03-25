@@ -29,6 +29,22 @@
 - CMake
 - pthread
 
+## 快速开始
+
+推荐在 Linux 环境下完成依赖安装、编译和运行：
+
+```bash
+git clone https://github.com/xmkzbgx1234/chat.git
+cd chat
+cmake -S . -B build
+cmake --build build -j
+```
+
+编译完成后，可执行文件默认输出到 `bin/` 目录：
+
+- `bin/chat_server`
+- `bin/chat_client`
+
 ## 功能列表
 
 当前代码已实现的核心能力：
@@ -209,19 +225,14 @@ connectionTimeout=1000
 
 ## 构建方式
 
-当前仓库顶层没有总 `CMakeLists.txt`，可以直接以 `src/` 作为 CMake 入口：
+仓库根目录已提供顶层 `CMakeLists.txt`，推荐直接在项目根目录执行：
 
 ```bash
-cmake -S src -B build
+cmake -S . -B build
 cmake --build build -j
 ```
 
-构建完成后，常见可执行文件位置为：
-
-- `build/server/chat_server` 或相近目录
-- `build/client/chat_client` 或相近目录
-
-如果你本地已经使用过其他构建方式，也可以直接运行已有的 `bin/chat_server`、`bin/chat_client`。
+如果只想单独调试某个子目录，也可以按需改用 `src/` 作为入口；但默认构建方式建议以上面的根目录命令为准。
 
 ## 运行步骤
 
@@ -245,13 +256,13 @@ sudo service redis-server start
 ### 3. 启动服务端
 
 ```bash
-./chat_server 127.0.0.1 6000
+./bin/chat_server 127.0.0.1 6000
 ```
 
 ### 4. 启动客户端
 
 ```bash
-./chat_client 127.0.0.1 6000
+./bin/chat_client 127.0.0.1 6000
 ```
 
 ### 5. 集群测试
@@ -259,8 +270,8 @@ sudo service redis-server start
 如果要测试集群转发，可启动多个服务端实例，例如：
 
 ```bash
-./chat_server 127.0.0.1 6000
-./chat_server 127.0.0.1 6001
+./bin/chat_server 127.0.0.1 6000
+./bin/chat_server 127.0.0.1 6001
 ```
 
 让不同用户连接不同端口，再测试单聊或群聊消息是否通过 Redis 转发。
@@ -360,12 +371,6 @@ loginout
 - 当前仓库里的 `build/`、`bin/` 属于构建产物/可执行文件目录
 - `build.sh` 目前为空，可在后续补充一键构建脚本
 - `test/testmuduo/` 更偏向 Muduo 学习与验证代码，不属于核心业务模块
-
-如果你愿意，我下一步可以继续帮你把这个 README 再升级成更适合放在 GitHub 首页和简历投递的版本，比如：
-
-1. 增加数据库建表 SQL 示例
-2. 增加系统架构图 / 时序图版本
-3. 改成更偏“面试官阅读友好”的项目亮点写法
 
 ## 增量同步
 
