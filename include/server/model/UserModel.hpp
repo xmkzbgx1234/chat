@@ -1,7 +1,7 @@
 #ifndef USER_MODEL_HPP
 #define USER_MODEL_HPP
 
-#include "User.hpp"
+#include "user.hpp"
 #include "db.hpp"
 
 // User表的数据操作类
@@ -20,6 +20,9 @@ public:
 
     // 删除用户
     bool deleteUser(int id);
+
+    // 重置用户状态
+    void resetState();
 private:
 
 };

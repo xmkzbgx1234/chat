@@ -5,7 +5,7 @@
 #include <string>
 
 // 离线消息数据操作类
-class OffLineMessageModel
+class OffLineMsgModel
 {
 public:
     // 存储离线消息
