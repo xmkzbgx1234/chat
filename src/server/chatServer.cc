@@ -1,9 +1,9 @@
-#include <iostream>
 #include <string>
 #include <functional>
 #include <nlohmann/json.hpp>
 #include "chatServer.hpp"  
 #include "IService.hpp"
+#include "log.h"
 
 using namespace std;
 using namespace placeholders;
@@ -27,12 +27,12 @@ void ChatServer::start(){
 
 void ChatServer::onConnection(const TcpConnectionPtr & conn){
     if(conn->connected()){
-        std::cout << conn->peerAddress().toIpPort() << " -> "
-             << conn->localAddress().toIpPort() << " state:online" << std::endl;
+        LOG_INFO << conn->peerAddress().toIpPort() << " -> "
+                 << conn->localAddress().toIpPort() << " state:online";
     }
     else{
-        std::cout << conn->peerAddress().toIpPort() << " -> "
-             << conn->localAddress().toIpPort() << " state:offline" << std::endl;
+        LOG_INFO << conn->peerAddress().toIpPort() << " -> "
+                 << conn->localAddress().toIpPort() << " state:offline";
         // 处理客户端异常退出
         IService::instance()->ClientCloseException(conn);
         conn->shutdown();
@@ -42,8 +42,7 @@ void ChatServer::onConnection(const TcpConnectionPtr & conn){
 void ChatServer::onMessage(const TcpConnectionPtr & conn, 
     Buffer * buffer, Timestamp receiveTime){
     std::string msg = buffer->retrieveAllAsString();
-    std::cout << "recv data:" << msg 
-              << " time:" << receiveTime.toString() << std::endl;
+    LOG_DEBUG << "recv data:" << msg << " time:" << receiveTime.toString();
     // 数据json反序列化
     json js = json::parse(msg);
     // 通过json["msgid"] 判断消息类型，进行不同的server handler

@@ -7,11 +7,13 @@ using namespace std;
 // 存储离线消息的具体实现
 void OffLineMsgModel::insert(int id, const string &msg)
 {
-    // 组装sql语句
-    char sql[1024] = {0};
-    sprintf(sql, "INSERT INTO offlinemessage (userid, message) VALUES (%d, '%s')",
-            id, msg.c_str());
     shared_ptr<MySQL> sp = ConnectionPool::getConnectionPool()->getConnection();
+    if (sp == nullptr)
+    {
+        return;
+    }
+    string escapedMsg = sp->escapeString(msg);
+    string sql = "INSERT INTO offlinemessage (userid, message) VALUES (" + to_string(id) + ", '" + escapedMsg + "')";
     sp->update(sql);
 }
 

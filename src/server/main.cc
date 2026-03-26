@@ -1,6 +1,6 @@
 #include "chatServer.hpp"
 #include "IService.hpp"
-#include <iostream>
+#include "log.h"
 #include <signal.h>
 #include <string>
 
@@ -9,6 +9,7 @@ using namespace std;
 // 处理服务器异常退出
 void resetHandler(int sig)
 {
+    LOG_INFO << "Receive signal " << sig << ", reset user state before exit";
     IService::instance()->reset();
     exit(0);
 }
@@ -18,7 +19,7 @@ int main(int argc, char *argv[])
     signal(SIGINT, resetHandler); // 注册信号处理函数
     EventLoop loop; // 创建事件循环对象
     if(argc != 3){
-        cout << "Usage: " << argv[0] << " <ip> <port>" << endl;
+        LOG_ERROR << "Usage: " << argv[0] << " <ip> <port>";
         return -1;
     }
     string ip = argv[1];

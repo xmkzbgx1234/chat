@@ -19,7 +19,8 @@ enum EnMsgType
     ADD_GROUP_MSG,    // 加入群组消息11
     ADD_GROUP_MSG_ACK, // 加入群组响应消息12
     GROUP_CHAT_MSG,   // 群组聊天消息13
-    LOGINOUT_MSG, // 退出登录消息14
+    GROUP_CHAT_MSG_ACK, // 群组聊天响应消息14
+    LOGINOUT_MSG, // 退出登录消息15
 };
 
 #endif // PUBLIC_HPP

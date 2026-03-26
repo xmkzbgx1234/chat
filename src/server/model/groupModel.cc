@@ -25,7 +25,7 @@ bool GroupModel::createGroup(Group &group)
 bool GroupModel::addGroup(int userid, int groupid, string role)
 {
     char sql[1024] = {0};
-    sprintf(sql, "SELECT * FROM allgroup WHERE groupid=%d", groupid);
+    sprintf(sql, "SELECT * FROM allgroup WHERE id=%d", groupid);
     shared_ptr<MySQL> sp = ConnectionPool::getConnectionPool()->getConnection();
     if (sp->query(sql))
     {
@@ -82,12 +82,6 @@ vector<Group> GroupModel::queryGroups(int userid)
     while ((row = mysql_fetch_row(res)))
     {
         // 1. 先打印SQL原始结果（调试用）
-        for (int i = 0; i < mysql_num_fields(res); i++)
-        {
-            cout << (row[i] ? row[i] : "NULL") << " ";
-        }
-        cout << endl;
-
         // 2. 解析字段（补充空值处理）
         int groupid = atoi(row[0] ? row[0] : "0");
         const char *groupname = row[1] ? row[1] : "";
@@ -106,13 +100,7 @@ vector<Group> GroupModel::queryGroups(int userid)
             groupIndexMap[groupid] = groups.size() - 1;
         }
 
-        // ========== 核心修正2：groupUser构造参数传对（role=grouprole，state=userstate） ==========
-        // 假设groupUser构造函数：groupUser(int id, string name, string state, string role)
-        // 传参顺序：id, name, state(userstate), role(grouprole)
-        groupUser user(userid_, username, grouprole, userstate);
-
-        // 若groupUser构造函数是：groupUser(int id, string name, string role, string state)
-        // 则改为：groupUser user(userid_, username, grouprole, userstate);
+        groupUser user(userid_, username, userstate, grouprole);
 
         // 4. 添加成员到群组
         Group &targetGroup = groups[groupIndexMap[groupid]];

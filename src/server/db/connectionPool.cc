@@ -1,4 +1,5 @@
 #include "commonConnectionPool.hpp"
+#include "log.h"
 
 using namespace std;
 
@@ -28,7 +29,7 @@ bool ConnectionPool::loadConfigFile() {
 	// 使用 C++ 的 ifstream 打开文件（替代 FILE*）
 	std::ifstream ifs("mysql.ini");
 	if (!ifs.is_open()) { // 检查文件是否打开成功
-		cerr << "mysql.ini open failed!";
+		LOG_ERROR << "mysql.ini open failed";
 		return false;
 	}
 
@@ -82,7 +83,8 @@ bool ConnectionPool::loadConfigFile() {
 			}
 		}
 		catch (const std::exception& e) {
-			cerr << "Parse config error! key: " + key + ", value: " + value + ", error: " + e.what();
+			LOG_ERROR << "Parse config error! key: " << key
+			          << ", value: " << value << ", error: " << e.what();
 			ifs.close(); // 关闭文件
 			return false;
 		}
@@ -90,7 +92,7 @@ bool ConnectionPool::loadConfigFile() {
 
 	// 检查文件是否正常读取结束（非错误导致的中断）
 	if (ifs.bad()) {
-		cerr << "Error reading mysql.ini!";
+		LOG_ERROR << "Error reading mysql.ini";
 		ifs.close();
 		return false;
 	}
@@ -101,13 +103,15 @@ bool ConnectionPool::loadConfigFile() {
 
 ConnectionPool::ConnectionPool() {
 	if (!loadConfigFile()) {
-		cerr << "Failed to load MySQL configuration file.";
+		LOG_ERROR << "Failed to load MySQL configuration file";
 		return;
 	}
 	for (int i = 0; i < _initSize; ++i) {
 		MySQL* p = new MySQL();
 		bool res = p->connect(_ip, _port, _username, _password, _dbname);
-		if (!res) cerr << "connect error!";
+		if (!res) {
+			LOG_ERROR << "Initial MySQL connection failed";
+		}
 		p->refreshAliveTime(); //刷新连接的起始空闲时间
 		_connectionQue.push(p);
 		_connectionCnt++;
@@ -142,7 +146,7 @@ shared_ptr<MySQL> ConnectionPool::getConnection() {
 	while(_connectionQue.empty()) {
 		if(cv_status::timeout == cv.wait_for(lock, chrono::microseconds(_connectionTimeout))){ //等待连接
 			if (_connectionQue.empty()) {
-				cerr << "Get connection timeout!";
+				LOG_WARN << "Get connection timeout";
 				return nullptr; //超时仍然没有连接，返回空指针
 			}
 		}

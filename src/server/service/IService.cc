@@ -5,7 +5,7 @@
 #include <nlohmann/json.hpp>
 #include <mutex>
 #include "public.hpp"
-#include "userModel.hpp"
+#include "UserModel.hpp"
 #include "offLineMsgModel.hpp"
 #include "friendModel.hpp"
 #include "groupModel.hpp"
@@ -15,6 +15,7 @@
 #include "friendService.hpp"
 #include "authService.hpp"
 #include "onlineUserManager.hpp"
+#include "log.h"
 
 #define MSGHANDLER(msg, handler) _msgHandlerMap[msg] = [this](const TcpConnectionPtr& conn, json& js, Timestamp time) { handler(conn, js, time);}
 
@@ -34,12 +35,13 @@ IService::IService() :
     _offLineMsgModel(OffLineMsgModel()),
     _friendModel(FriendModel()),
     _groupModel(GroupModel()),
+    _chatMessageModel(ChatMessageModel()),
     _redis(Redis()),
     _onlineUserManager(),
-    _authService(AuthService(&_userModel, &_offLineMsgModel, &_friendModel, &_groupModel, &_redis, &_onlineUserManager)),
-    _friendService(FriendService(&_userModel, &_friendModel)),
-    _groupService(GroupService(&_groupModel)),
-    _chatService(ChatService(&_userModel, &_offLineMsgModel, &_friendModel, &_groupModel, &_redis, &_onlineUserManager))
+    _chatService(_userModel, _offLineMsgModel, _groupModel, _chatMessageModel, _redis, _onlineUserManager),
+    _groupService(_groupModel),
+    _friendService(_userModel, _friendModel),
+    _authService(_userModel, _offLineMsgModel, _friendModel, _groupModel, _chatMessageModel, _redis, _onlineUserManager)
 {
 
     // 1. 注册消息处理函数
@@ -99,7 +101,7 @@ void IService::handleRedisMessage(int channel, const string &message){
     TcpConnectionPtr conn = _onlineUserManager.getUserConn(channel);
     if(conn != nullptr)
     {
-        cout << "handleRedisMessage: " << "channel: " << channel << ", message: " << message << endl;
+        LOG_DEBUG << "handleRedisMessage: channel=" << channel << ", message=" << message;
         conn->send(message);
         return;
     }

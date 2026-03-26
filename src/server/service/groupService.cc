@@ -9,10 +9,9 @@ using namespace muduo::net;
 using namespace nlohmann;
 
 
-GroupService::GroupService(GroupModel* groupModel)
-{
-    _groupModel = groupModel;
-}
+GroupService::GroupService(GroupModel& groupModel)
+    : _groupModel(groupModel)
+{}
 
 void GroupService::handleMessage(const TcpConnectionPtr &conn, json &js, Timestamp time){
     int msgid = js["msgid"].get<int>();
@@ -36,7 +35,7 @@ void GroupService::createGroup(const TcpConnectionPtr &conn, json &js, Timestamp
     string groupdesc = js["groupdesc"];
     // 创建群组
     Group group = Group(-1, groupname, groupdesc);
-    if(_groupModel->createGroup(group)){
+    if(_groupModel.createGroup(group)){
         // 群组创建成功
         json response;
         response["msgid"] = CREATE_GROUP_MSG_ACK;
@@ -46,7 +45,7 @@ void GroupService::createGroup(const TcpConnectionPtr &conn, json &js, Timestamp
         response["groupname"] = group.getName();
         response["groupdesc"] = group.getDesc();
         // 加入群组
-        _groupModel->addGroup(userid, group.getId(), "creator");
+        _groupModel.addGroup(userid, group.getId(), "creator");
         conn->send(response.dump());
     }
     else{
@@ -63,7 +62,7 @@ void GroupService::addGroup(const TcpConnectionPtr &conn, json &js, Timestamp ti
     int userid = js["userid"].get<int>();
     int groupid = js["groupid"].get<int>();
     // 加入群组
-    if(_groupModel->addGroup(userid, groupid, "normal")){
+    if(_groupModel.addGroup(userid, groupid, "normal")){
         // 加入群组成功
         json response;
         response["msgid"] = ADD_GROUP_MSG_ACK;

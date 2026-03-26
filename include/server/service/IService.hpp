@@ -3,13 +3,15 @@
 
 #include <unordered_map>
 #include <functional>
+#include <memory>
+#include <mutex>
 #include <muduo/net/TcpConnection.h>
 #include <nlohmann/json.hpp>
-#include <memory>
-#include "userModel.hpp"
+#include "UserModel.hpp"
 #include "offLineMsgModel.hpp"
 #include "friendModel.hpp"
 #include "groupModel.hpp"
+#include "chatMessageModel.hpp"
 #include "redis.hpp"
 #include "chatService.hpp"
 #include "groupService.hpp"
@@ -29,7 +31,7 @@ public:
     void ClientCloseException(const muduo::net::TcpConnectionPtr& conn);
     void reset(); // 重置服务状态
     void handleRedisMessage(int channel, const std::string &message);
-    vector<unique_ptr<BaseService>> _services;
+
 private:
     IService();
     // 存储消息id和对应的业务处理方法 
@@ -47,14 +49,11 @@ private:
     // 群组操作类对象
     GroupModel _groupModel;
 
+    // 聊天记录操作类对象
+    ChatMessageModel _chatMessageModel;
+
     // Redis 操作类对象
     Redis _redis;
-
-    // 定义互斥锁
-    std::mutex _connMutex;
-
-    // 存储在线用户的通信连接
-    std::unordered_map<int, muduo::net::TcpConnectionPtr> _userConnMap;
 
     // 在线用户管理类对象
     OnlineUserManager _onlineUserManager;

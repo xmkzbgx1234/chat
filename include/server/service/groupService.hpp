@@ -9,10 +9,10 @@
 class GroupService : public BaseService
 {
 private:
+    GroupModel& _groupModel;
 
 public:
-    GroupService();
-    GroupService(GroupModel* groupModel);
+    GroupService(GroupModel& groupModel);
     ~GroupService() = default;
 
     void handleMessage(const muduo::net::TcpConnectionPtr &conn, nlohmann::json &js, muduo::Timestamp time) override;

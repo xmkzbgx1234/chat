@@ -1,4 +1,5 @@
 #include "redis.hpp"
+#include "log.h"
 #include <thread>
 
 using namespace std;
@@ -43,24 +44,23 @@ bool Redis::connect(const string& ip, int port, const string& pass) {
     thread t(&Redis::observer_channel_message, this);
     t.detach();  // 分离线程，后台运行
 
-    cout << "Redis 发布/订阅连接成功" << endl;
+    LOG_INFO << "Redis publish/subscribe connection established";
     return true;
 }
 
-// 兼容原有无密码连接接口
 bool Redis::connect() {
+    // 兼容原有无密码连接接口
     return connect("127.0.0.1", 6379, "");
 }
 
-// ========== 私有工具函数（核心：错误处理+重连） ==========
-// 检查Redis连接是否有效（含密码认证）
 bool Redis::checkConnect(redisContext* ctx, const string& type) {
+    // 检查Redis连接是否有效（含密码认证）
     if (ctx == nullptr) {
-        cerr << "Redis " << type << " 连接失败：空指针" << endl;
+        LOG_ERROR << "Redis " << type << " connection failed: null context";
         return false;
     }
     if (ctx->err) {
-        cerr << "Redis " << type << " 连接失败：" << ctx->errstr << endl;
+        LOG_ERROR << "Redis " << type << " connection failed: " << ctx->errstr;
         redisFree(ctx);
         return false;
     }
@@ -78,14 +78,15 @@ bool Redis::checkConnect(redisContext* ctx, const string& type) {
     return true;
 }
 
-// 检查Redis命令回复是否有效
 bool Redis::checkReply(redisReply* reply, const string& cmd) {
+    // 检查Redis命令回复是否有效
     if (reply == nullptr) {
-        cerr << "Redis 执行 " << cmd << " 失败：回复为空" << endl;
+        LOG_ERROR << "Redis command " << cmd << " failed: empty reply";
         return false;
     }
     if (reply->type == REDIS_REPLY_ERROR) {
-        cerr << "Redis 执行 " << cmd << " 失败：" << reply->str << endl;
+        LOG_ERROR << "Redis command " << cmd << " failed: "
+                  << (reply->str != nullptr ? reply->str : "unknown error");
         freeReplyObject(reply);
         return false;
     }
@@ -95,10 +96,10 @@ bool Redis::checkReply(redisReply* reply, const string& cmd) {
 bool Redis::publish(int channel, const string& message)
 {
     redisReply *reply = (redisReply *)redisCommand(_publish_context, "PUBLISH %d %s", channel, message.c_str());
-    cout << "channel: " << channel << ", message: " << message << endl;
+    LOG_DEBUG << "publish channel=" << channel << ", message=" << message;
     if (nullptr == reply)
     {
-        cerr << "publish command failed!" << endl;
+        LOG_ERROR << "publish command failed";
         return false;
     }
     freeReplyObject(reply);
@@ -107,7 +108,7 @@ bool Redis::publish(int channel, const string& message)
 
 bool Redis::subscribe(const int channel){
     if(_subscribe_context == nullptr){
-        cerr << "Redis subscribe context is null" << endl;
+        LOG_ERROR << "Redis subscribe context is null";
         return false;
     }
     // 安全格式化命令：避免特殊字符导致的命令错误
@@ -116,13 +117,13 @@ bool Redis::subscribe(const int channel){
         return false;
     }
     freeReplyObject(reply);
-    cout << "subscribe channel: " << channel << endl;
+    LOG_INFO << "subscribe channel=" << channel;
     return true;
 }
 
 bool Redis::unsubscribe(const int channel){
     if(_subscribe_context == nullptr){
-        cerr << "Redis unsubscribe context is null" << endl;
+        LOG_ERROR << "Redis unsubscribe context is null";
         return false;
     }
     // 安全格式化命令：避免特殊字符导致的命令错误
@@ -136,8 +137,8 @@ bool Redis::unsubscribe(const int channel){
     return true;
 }
 
-// 独立线程监听订阅消息
 void Redis::observer_channel_message() {
+    // 独立线程监听订阅消息
     redisReply *reply = nullptr;
     while (REDIS_OK == redisGetReply(_subscribe_context, (void **)&reply)) {
         // 1. 基础校验：reply有效、是数组类型、至少有3个元素

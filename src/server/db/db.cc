@@ -66,6 +66,19 @@ MYSQL_RES* MySQL::query(string sql)
 	return mysql_store_result(_conn);
 }
 
+string MySQL::escapeString(const string &input)
+{
+	if (_conn == nullptr) {
+		return input;
+	}
+	string escaped;
+	escaped.resize(input.size() * 2 + 1);
+	unsigned long len = mysql_real_escape_string(_conn, &escaped[0], input.c_str(),
+		static_cast<unsigned long>(input.size()));
+	escaped.resize(len);
+	return escaped;
+}
+
 MYSQL* MySQL::getMySQL()
 {
 	return _conn;

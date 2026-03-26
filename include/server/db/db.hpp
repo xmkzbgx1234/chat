@@ -13,6 +13,7 @@ public:
 	bool connect(std::string ip, unsigned short port, std::string user, std::string password, std::string dbname);
 	bool update(std::string sql);
 	MYSQL_RES* query(std::string sql);
+	std::string escapeString(const std::string &input);
 
 	void refreshAliveTime() { // 刷新连接的起始空闲时间
 		_aliveTime = clock();
