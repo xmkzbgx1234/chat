@@ -1,9 +1,11 @@
 #include <string>
 #include <functional>
+#include <cstring>
 #include <nlohmann/json.hpp>
 #include "chatServer.hpp"  
 #include "IService.hpp"
 #include "log.h"
+#include "public.hpp"
 
 using namespace std;
 using namespace placeholders;
@@ -18,7 +20,7 @@ ChatServer::ChatServer(EventLoop *loop, const InetAddress &listenAddr,
 
     _server.setMessageCallback(std::bind(&ChatServer::onMessage, this, _1, _2, _3));
 
-    _server.setThreadNum(6); // 1个I/O线程 5个worker线程
+    _server.setThreadNum(6); // 1 个 main loop 线程 6 个 sub loop(I/O) 线程
 }
 
 void ChatServer::start(){
@@ -41,15 +43,38 @@ void ChatServer::onConnection(const TcpConnectionPtr & conn){
 
 void ChatServer::onMessage(const TcpConnectionPtr & conn, 
     Buffer * buffer, Timestamp receiveTime){
-    std::string msg = buffer->retrieveAllAsString();
-    LOG_DEBUG << "recv data:" << msg << " time:" << receiveTime.toString();
-    // 数据json反序列化
-    json js = json::parse(msg);
-    // 通过json["msgid"] 判断消息类型，进行不同的server handler
-    // 完全解耦网络模块和业务模块
-    auto msgHandler = IService::instance()->getHandler(js["msgid"].get<int>());
-    // 回调消息处理方法
-    if(msgHandler){
-        msgHandler(conn, js, receiveTime);
+    while (buffer->readableBytes() >= header_size)
+    {
+        uint32_t networkSize = 0;
+        std::memcpy(&networkSize, buffer->peek(), header_size);
+        const uint32_t bodySize = ntohl(networkSize);
+        if (bodySize > max_body_size)
+        {
+            LOG_WARN << "Invalid packet size=" << bodySize << " from " << conn->peerAddress().toIpPort();
+            conn->shutdown();
+            return;
+        }
+        if (buffer->readableBytes() < header_size + bodySize)
+        {
+            break;
+        }
+
+        buffer->retrieve(header_size);
+        std::string msg(buffer->peek(), bodySize);
+        buffer->retrieve(bodySize);
+        LOG_DEBUG << "recv data:" << msg << " time:" << receiveTime.toString();
+
+        try
+        {
+            json js = json::parse(msg);
+            auto msgHandler = IService::instance()->getHandler(js["msgid"].get<int>());
+            if(msgHandler){
+                msgHandler(conn, js, receiveTime);
+            }
+        }
+        catch (const std::exception &e)
+        {
+            LOG_WARN << "Parse client JSON failed: " << e.what();
+        }
     }
 }

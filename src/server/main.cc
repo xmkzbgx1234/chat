@@ -1,12 +1,12 @@
 #include "chatServer.hpp"
 #include "IService.hpp"
+#include "configManager.hpp"
 #include "log.h"
 #include <signal.h>
 #include <string>
 
 using namespace std;
 
-// 处理服务器异常退出
 void resetHandler(int sig)
 {
     LOG_INFO << "Receive signal " << sig << ", reset user state before exit";
@@ -16,22 +16,42 @@ void resetHandler(int sig)
 
 int main(int argc, char *argv[])
 {
-    signal(SIGINT, resetHandler); // 注册信号处理函数
-    EventLoop loop; // 创建事件循环对象
-    if(argc != 3){
-        LOG_ERROR << "Usage: " << argv[0] << " <ip> <port>";
+    signal(SIGINT, resetHandler);
+    
+    // 加载配置文件
+    ConfigManager* config = ConfigManager::getInstance();
+    string configFile = "config.ini";
+    
+    // 支持命令行指定配置文件
+    if (argc >= 2) {
+        configFile = argv[1];
+    }
+    
+    if (!config->load(configFile)) {
+        LOG_ERROR << "Failed to load config file: " << configFile;
         return -1;
     }
-    string ip = argv[1];
-    int port = atoi(argv[2]);
-
-    InetAddress addr(ip, port); // 服务器IP和端口
+    
+    LOG_INFO << "Configuration loaded from: " << configFile;
+    
+    // 从配置文件读取服务器配置
+    string ip = config->getString("server", "host", "0.0.0.0");
+    int port = config->getInt("server", "port", 6000);
+    
+    // 支持命令行参数覆盖配置文件
+    if (argc >= 4) {
+        ip = argv[2];
+        port = atoi(argv[3]);
+    }
+    
+    EventLoop loop;
+    InetAddress addr(ip, port);
     IService::instance()->reset();
-    ChatServer server(&loop, addr, "ChatServer"); // 创建服务器对象
+    ChatServer server(&loop, addr, "ChatServer");
 
-    server.start(); // 启动服务器
-
-    loop.loop(); // 启动事件循环
+    LOG_INFO << "Chat server starting on " << ip << ":" << port;
+    server.start();
+    loop.loop();
 
     return 0;
-} 
+}

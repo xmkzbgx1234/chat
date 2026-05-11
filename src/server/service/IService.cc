@@ -71,7 +71,7 @@ MsgHandler IService::getHandler(int msgid)
     return _msgHandlerMap[msgid];
 }
 
-void IService::reset()
+void IService::reset()  
 {
     // 把在线用户的状态设置为离线
     _userModel.resetState();
@@ -102,9 +102,9 @@ void IService::handleRedisMessage(int channel, const string &message){
     if(conn != nullptr)
     {
         LOG_DEBUG << "handleRedisMessage: channel=" << channel << ", message=" << message;
-        conn->send(message);
+        conn->send(encodeMessage(message));
         return;
     }
     // 存储该用户的离线消息
     _offLineMsgModel.insert(channel, message);
-}
+} 

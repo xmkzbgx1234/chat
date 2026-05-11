@@ -4,6 +4,7 @@
 #include <mysql/mysql.h>
 #include <string>
 #include <ctime>
+#include <vector>
 
 class MySQL
 {
@@ -14,6 +15,12 @@ public:
 	bool update(std::string sql);
 	MYSQL_RES* query(std::string sql);
 	std::string escapeString(const std::string &input);
+
+	// 预编译语句支持
+	MYSQL_STMT* prepare(const std::string& sql);
+	bool executeStmt(MYSQL_STMT* stmt, MYSQL_BIND* bind);
+	MYSQL_RES* queryStmt(MYSQL_STMT* stmt, MYSQL_BIND* bind);
+	void closeStmt(MYSQL_STMT* stmt);
 
 	void refreshAliveTime() { // 刷新连接的起始空闲时间
 		_aliveTime = clock();

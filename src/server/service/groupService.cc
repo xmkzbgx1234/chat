@@ -3,6 +3,7 @@
 #include <muduo/net/TcpConnection.h>
 #include <nlohmann/json.hpp>
 #include "public.hpp"
+#include "validator.hpp"
 
 using namespace muduo;
 using namespace muduo::net;
@@ -30,9 +31,29 @@ void GroupService::handleMessage(const TcpConnectionPtr &conn, json &js, Timesta
 
 
 void GroupService::createGroup(const TcpConnectionPtr &conn, json &js, Timestamp time){
-    int userid = js["userid"].get<int>();
-    string groupname = js["groupname"];
-    string groupdesc = js["groupdesc"];
+    int userid = Validator::getInt(js, "userid", -1);
+    string groupname = Validator::getString(js, "groupname", "");
+    string groupdesc = Validator::getString(js, "groupdesc", "");
+    
+    // 参数校验
+    if (!Validator::isValidUserId(userid)) {
+        json response;
+        response["msgid"] = CREATE_GROUP_MSG_ACK;
+        response["errno"] = 1;
+        response["errmsg"] = "无效的用户ID";
+        conn->send(encodeMessage(response.dump()));
+        return;
+    }
+    
+    if (!Validator::isValidGroupName(groupname)) {
+        json response;
+        response["msgid"] = CREATE_GROUP_MSG_ACK;
+        response["errno"] = 1;
+        response["errmsg"] = "群名不能为空且长度不能超过128个字符";
+        conn->send(encodeMessage(response.dump()));
+        return;
+    }
+    
     // 创建群组
     Group group = Group(-1, groupname, groupdesc);
     if(_groupModel.createGroup(group)){
@@ -46,7 +67,7 @@ void GroupService::createGroup(const TcpConnectionPtr &conn, json &js, Timestamp
         response["groupdesc"] = group.getDesc();
         // 加入群组
         _groupModel.addGroup(userid, group.getId(), "creator");
-        conn->send(response.dump());
+        conn->send(encodeMessage(response.dump()));
     }
     else{
         // 群组创建失败
@@ -54,13 +75,33 @@ void GroupService::createGroup(const TcpConnectionPtr &conn, json &js, Timestamp
         response["msgid"] = CREATE_GROUP_MSG_ACK;
         response["errno"] = 1;
         response["errmsg"] = "创建群组失败";
-        conn->send(response.dump());
+        conn->send(encodeMessage(response.dump()));
     }
 }
 
 void GroupService::addGroup(const TcpConnectionPtr &conn, json &js, Timestamp time){
-    int userid = js["userid"].get<int>();
-    int groupid = js["groupid"].get<int>();
+    int userid = Validator::getInt(js, "userid", -1);
+    int groupid = Validator::getInt(js, "groupid", -1);
+    
+    // 参数校验
+    if (!Validator::isValidUserId(userid)) {
+        json response;
+        response["msgid"] = ADD_GROUP_MSG_ACK;
+        response["errno"] = 1;
+        response["errmsg"] = "无效的用户ID";
+        conn->send(encodeMessage(response.dump()));
+        return;
+    }
+    
+    if (!Validator::isValidGroupId(groupid)) {
+        json response;
+        response["msgid"] = ADD_GROUP_MSG_ACK;
+        response["errno"] = 1;
+        response["errmsg"] = "无效的群组ID";
+        conn->send(encodeMessage(response.dump()));
+        return;
+    }
+    
     // 加入群组
     if(_groupModel.addGroup(userid, groupid, "normal")){
         // 加入群组成功
@@ -68,14 +109,14 @@ void GroupService::addGroup(const TcpConnectionPtr &conn, json &js, Timestamp ti
         response["msgid"] = ADD_GROUP_MSG_ACK;
         response["errno"] = 0;
         response["errmsg"] = "加入群组成功";
-        conn->send(response.dump());
+        conn->send(encodeMessage(response.dump()));
     }
     else{
         // 加入群组失败
         json response;
         response["msgid"] = ADD_GROUP_MSG_ACK;
         response["errno"] = 1;
-        response["errmsg"] = "加入群组失败";
-        conn->send(response.dump());
+        response["errmsg"] = "加入群组失败，群组可能不存在或您已在群组中";
+        conn->send(encodeMessage(response.dump()));
     }
 }

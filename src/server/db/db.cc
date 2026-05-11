@@ -83,3 +83,72 @@ MYSQL* MySQL::getMySQL()
 {
 	return _conn;
 }
+
+MYSQL_STMT* MySQL::prepare(const string& sql)
+{
+	if (_conn == nullptr) {
+		LOG_ERROR << "MySQL connection is null";
+		return nullptr;
+	}
+
+	MYSQL_STMT* stmt = mysql_stmt_init(_conn);
+	if (stmt == nullptr) {
+		LOG_ERROR << "mysql_stmt_init failed";
+		return nullptr;
+	}
+
+	if (mysql_stmt_prepare(stmt, sql.c_str(), sql.length()) != 0) {
+		LOG_ERROR << "mysql_stmt_prepare failed: " << mysql_stmt_error(stmt);
+		mysql_stmt_close(stmt);
+		return nullptr;
+	}
+
+	return stmt;
+}
+
+bool MySQL::executeStmt(MYSQL_STMT* stmt, MYSQL_BIND* bind)
+{
+	if (stmt == nullptr) {
+		LOG_ERROR << "Statement is null";
+		return false;
+	}
+
+	if (bind != nullptr && mysql_stmt_bind_param(stmt, bind) != 0) {
+		LOG_ERROR << "mysql_stmt_bind_param failed: " << mysql_stmt_error(stmt);
+		return false;
+	}
+
+	if (mysql_stmt_execute(stmt) != 0) {
+		LOG_ERROR << "mysql_stmt_execute failed: " << mysql_stmt_error(stmt);
+		return false;
+	}
+
+	return true;
+}
+
+MYSQL_RES* MySQL::queryStmt(MYSQL_STMT* stmt, MYSQL_BIND* bind)
+{
+	if (stmt == nullptr) {
+		LOG_ERROR << "Statement is null";
+		return nullptr;
+	}
+
+	if (bind != nullptr && mysql_stmt_bind_param(stmt, bind) != 0) {
+		LOG_ERROR << "mysql_stmt_bind_param failed: " << mysql_stmt_error(stmt);
+		return nullptr;
+	}
+
+	if (mysql_stmt_execute(stmt) != 0) {
+		LOG_ERROR << "mysql_stmt_execute failed: " << mysql_stmt_error(stmt);
+		return nullptr;
+	}
+
+	return mysql_stmt_result_metadata(stmt);
+}
+
+void MySQL::closeStmt(MYSQL_STMT* stmt)
+{
+	if (stmt != nullptr) {
+		mysql_stmt_close(stmt);
+	}
+}

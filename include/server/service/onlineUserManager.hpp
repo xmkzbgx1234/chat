@@ -8,6 +8,8 @@
 #include <muduo/net/TcpConnection.h>
 #include <memory>
 
+#include "public.hpp"
+
 using TcpConnectionPtr = std::shared_ptr<muduo::net::TcpConnection>;
 
 class OnlineUserManager {
@@ -19,10 +21,16 @@ public:
     // 构造函数
     OnlineUserManager() = default;
 
-    // 添加用户连接
-    void addUser(int userid, const TcpConnectionPtr& conn) {
+    // 添加用户连接（返回旧连接，用于踢下线）
+    TcpConnectionPtr addUser(int userid, const TcpConnectionPtr& conn) {
         std::lock_guard<std::mutex> lock(_mutex);
+        TcpConnectionPtr oldConn = nullptr;
+        auto it = _userConnMap.find(userid);
+        if (it != _userConnMap.end()) {
+            oldConn = it->second;  // 保存旧连接
+        }
         _userConnMap[userid] = conn;
+        return oldConn;  // 返回旧连接（如果有）
     }
 
     // 删除用户连接
@@ -72,7 +80,7 @@ public:
         std::lock_guard<std::mutex> lock(_mutex);
         for (const auto& pair : _userConnMap) {
             if (pair.second) {
-                pair.second->send(msg);
+                pair.second->send(encodeMessage(msg));
             }
         }
     }

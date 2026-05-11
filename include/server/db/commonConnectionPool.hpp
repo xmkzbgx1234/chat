@@ -16,15 +16,18 @@
 class ConnectionPool
 {
 public:
+	using ConnectionPtr = std::unique_ptr<MySQL, std::function<void(MySQL*)>>;
+
 	// 获取单例的连接池实例
 	static ConnectionPool* getConnectionPool();
 	// 外部申请连接的接口，智能指针在用户使用完连接后自动归还到连接池
-	std::shared_ptr<MySQL> getConnection(); 
+	ConnectionPtr getConnection();
 
 	bool loadConfigFile(); // 加载配置文件
 	// 运行在独立的线程，用于生产新连接
 	void produceConnectionTask();
 	void scannerConnectionTask();
+	void returnConnection(MySQL *conn);
 private:
 	std::string _ip; // mysql IP地址
 	unsigned int _port; // mysql端口号

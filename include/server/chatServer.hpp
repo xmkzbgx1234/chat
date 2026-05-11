@@ -3,6 +3,7 @@
 
 #include <muduo/net/TcpServer.h>
 #include <muduo/net/EventLoop.h>
+#include <muduo/net/InetAddress.h>
 
 using namespace muduo;
 using namespace muduo::net;

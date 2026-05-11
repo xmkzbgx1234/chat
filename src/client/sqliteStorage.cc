@@ -20,12 +20,15 @@ LocalChatStorage::~LocalChatStorage()
     }
 }
 
+// 单例
 LocalChatStorage &LocalChatStorage::instance()
 {
     static LocalChatStorage storage;
     return storage;
 }
 
+
+// 初始化
 bool LocalChatStorage::init(const string &dbPath)
 {
     lock_guard<mutex> lock(_mutex);
@@ -79,6 +82,7 @@ bool LocalChatStorage::ensureTables()
     return true;
 }
 
+// 增量同步服务端消息记录的游标
 long long LocalChatStorage::getLastSyncCursor(int userId)
 {
     lock_guard<mutex> lock(_mutex);

@@ -8,6 +8,7 @@
 
 #include <iostream>
 #include <limits>
+#include <stdexcept>
 #include <thread>
 #include <vector>
 
@@ -25,6 +26,7 @@ ClientApp::ClientApp()
 
 int ClientApp::run(int argc, char *argv[])
 {
+    // 本地 SQLite 用来缓存聊天记录与同步游标，启动时必须先准备好。
     if (!initStorage())
     {
         return -1;
@@ -54,6 +56,7 @@ bool ClientApp::initStorage()
 
 bool ClientApp::connectServer(const string &ip, int port)
 {
+    // 客户端与服务端保持一条长连接，后续所有请求和推送都复用这个 socket。
     _sockfd = socket(AF_INET, SOCK_STREAM, 0);
     if (_sockfd < 0)
     {
@@ -80,6 +83,55 @@ void ClientApp::closeConnection()
     {
         close(_sockfd);
         _sockfd = -1;
+    }
+}
+
+bool ClientApp::recvExact(void *buffer, size_t size)
+{
+    char *cursor = static_cast<char *>(buffer);
+    size_t received = 0;
+    while (received < size)
+    {
+        const ssize_t len = recv(_sockfd, cursor + received, size - received, 0);
+        if (len <= 0)
+        {
+            return false;
+        }
+        received += static_cast<size_t>(len);
+    }
+    return true;
+}
+
+bool ClientApp::recvJson(json &js)
+{
+    uint32_t networkSize = 0;
+    if (!recvExact(&networkSize, header_size))
+    {
+        return false;
+    }
+
+    const uint32_t bodySize = ntohl(networkSize);
+    if (bodySize > max_body_size)
+    {
+        LOG_ERROR << "Received oversized packet, bodySize=" << bodySize;
+        return false;
+    }
+
+    std::string payload(bodySize, '\0');
+    if (bodySize > 0 && !recvExact(&payload[0], bodySize))
+    {
+        return false;
+    }
+
+    try
+    {
+        js = json::parse(payload);
+        return true;
+    }
+    catch (const std::exception &e)
+    {
+        LOG_ERROR << "Parse framed JSON failed: " << e.what();
+        return false;
     }
 }
 
@@ -139,6 +191,7 @@ bool ClientApp::login()
     request["msgid"] = LOGIN_MSG;
     request["id"] = id;
     request["password"] = password;
+    // 带上本地最后一次同步到的 messageid，服务端只需要补发增量历史。
     request["sync_cursor"] = _storage.getLastSyncCursor(id);
     if (!sendJson(request))
     {
@@ -146,15 +199,12 @@ bool ClientApp::login()
         return false;
     }
 
-    char buffer[8192] = {0};
-    int len = recv(_sockfd, buffer, sizeof(buffer), 0);
-    if (len <= 0)
+    json recvjs;
+    if (!recvJson(recvjs))
     {
         LOG_ERROR << "Receive login response failed, userId=" << id;
         return false;
     }
-
-    json recvjs = json::parse(buffer);
     if (recvjs["msgid"].get<int>() != LOGIN_MSG_ACK || recvjs["errno"].get<int>() != 0)
     {
         LOG_WARN << "Login failed, userId=" << id << ", reason="
@@ -164,9 +214,11 @@ bool ClientApp::login()
 
     LOG_INFO << "Login succeeded, userId=" << recvjs.value("id", id);
     _session.applyLogin(recvjs, id);
+    // 登录成功后先把服务端返回的增量历史落库，再进入实时收发阶段。
     syncHistoryFromLogin(recvjs);
     _session.showCurrentUserInfo();
-
+    
+    // 处理服务器返回的离线消息，先展示，然后存入本地sqlite
     if (recvjs.contains("offlinemsg") && recvjs["offlinemsg"].is_array())
     {
         for (const json &offlineMessageJson : recvjs["offlinemsg"])
@@ -180,10 +232,12 @@ bool ClientApp::login()
             {
                 printDirectMessage(offlineMessage, "离线消息：");
             }
+            // 离线消息和实时消息统一走本地存储，保证会话记录完整。
             storeMessageIfPossible(offlineMessage);
         }
     }
 
+    // 后台线程持续接收服务端推送，主线程继续处理用户输入命令。
     thread readTask(&ClientApp::readLoop, this);
     readTask.detach();
     return true;
@@ -209,15 +263,12 @@ bool ClientApp::registerUser()
         return false;
     }
 
-    char buffer[1024] = {0};
-    int len = recv(_sockfd, buffer, sizeof(buffer), 0);
-    if (len <= 0)
+    json recvjs;
+    if (!recvJson(recvjs))
     {
         LOG_ERROR << "Receive register response failed";
         return false;
     }
-
-    json recvjs = json::parse(buffer);
     if (recvjs["msgid"].get<int>() == REG_MSG_ACK && recvjs["errno"].get<int>() == 0)
     {
         LOG_INFO << "Register succeeded, userId=" << recvjs["id"].get<int>();
@@ -257,14 +308,14 @@ void ClientApp::readLoop()
 {
     for (;;)
     {
-        char buffer[8192] = {0};
-        int len = recv(_sockfd, buffer, sizeof(buffer), 0);
-        if (len <= 0)
+        json incoming;
+        if (!recvJson(incoming))
         {
+            // 连接断开后退出读循环，避免后台线程持续空转。
             closeConnection();
             break;
         }
-        handleIncoming(json::parse(buffer));
+        handleIncoming(incoming);
     }
 }
 
@@ -274,10 +325,12 @@ void ClientApp::handleIncoming(const json &js)
     switch (msgtype)
     {
     case ONE_CHAT_MSG:
+        // 服务端主动推送的新私聊消息需要同时展示到终端并写入本地历史。
         printDirectMessage(js, "好友消息：");
         storeMessageIfPossible(js);
         break;
     case GROUP_CHAT_MSG:
+        // 群消息和私聊消息共用同一套持久化策略，保证本地检索一致。
         printGroupMessage(js, "群组消息：");
         storeMessageIfPossible(js);
         break;
@@ -285,6 +338,7 @@ void ClientApp::handleIncoming(const json &js)
         cout << js.value("errmsg", "") << endl;
         if (js.value("errno", 1) == 0 && js.contains("message"))
         {
+            // 发送成功回执里带回了最终入库消息，按服务端版本落库可避免本地状态不一致。
             storeMessageIfPossible(js["message"]);
         }
         break;
@@ -292,6 +346,7 @@ void ClientApp::handleIncoming(const json &js)
         cout << js.value("errmsg", "") << endl;
         if (js.value("errno", 1) == 0 && js.contains("message"))
         {
+            // 群消息发送成功后同样使用服务端确认过的消息对象更新本地记录。
             storeMessageIfPossible(js["message"]);
         }
         break;
@@ -306,12 +361,14 @@ void ClientApp::handleIncoming(const json &js)
     }
 }
 
+// 同步服务器的历史聊天记录
 void ClientApp::syncHistoryFromLogin(const json &recvjs)
 {
     if (!recvjs.contains("history_messages") || !recvjs["history_messages"].is_array())
     {
         if (recvjs.contains("sync_cursor"))
         {
+            // 即使本次没有历史消息，也要推进游标，避免下次重复拉取。
             _storage.updateSyncCursor(_session.currentUserId(), recvjs["sync_cursor"].get<long long>());
         }
         return;
@@ -320,6 +377,7 @@ void ClientApp::syncHistoryFromLogin(const json &recvjs)
     vector<json> historyMessages = recvjs["history_messages"].get<vector<json>>();
     if (!historyMessages.empty())
     {
+        // 批量落库比逐条写入更适合首次登录后的历史补偿场景。
         _storage.saveMessages(_session.currentUserId(), historyMessages);
         LOG_INFO << "Sync history messages count=" << historyMessages.size()
                  << ", userId=" << _session.currentUserId();
@@ -341,6 +399,7 @@ void ClientApp::storeMessageIfPossible(const json &message)
     long long messageId = message.value("messageid", 0LL);
     if (messageId > currentCursor)
     {
+        // 游标始终记录“已同步到哪一条消息”，供下次登录增量同步使用。
         _storage.updateSyncCursor(_session.currentUserId(), messageId);
     }
 }
@@ -362,6 +421,16 @@ void ClientApp::printGroupMessage(const json &js, const string &prefix)
 
 bool ClientApp::sendJson(const json &js)
 {
-    string payload = js.dump();
-    return send(_sockfd, payload.c_str(), payload.size(), 0) > 0;
+    const string packet = encodeMessage(js.dump());
+    size_t totalSent = 0;
+    while (totalSent < packet.size())
+    {
+        const ssize_t len = send(_sockfd, packet.data() + totalSent, packet.size() - totalSent, 0);
+        if (len <= 0)
+        {
+            return false;
+        }
+        totalSent += static_cast<size_t>(len);
+    }
+    return true;
 }

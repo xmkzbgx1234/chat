@@ -8,71 +8,164 @@ UserModel::UserModel() {}
 
 bool UserModel::insert(User &user)
 {
-    // 使用db对象进行数据库操作
-    char sql[1024] = {0};
-    sprintf(sql, "INSERT INTO user (name, password, state) VALUES ('%s', '%s', '%s')",
-            user.getName().c_str(), user.getPassword().c_str(), user.getState().c_str());
-    shared_ptr<MySQL> sp = ConnectionPool::getConnectionPool()->getConnection();
-    if (sp->update(sql))
-    {
-        // 获取插入成功的用户数据生成的主键id
-        user.setId(mysql_insert_id(sp->getMySQL()));
-        return true;
-    }
-    else
-    {
+    auto sp = ConnectionPool::getConnectionPool()->getConnection();
+    
+    const string sql = "INSERT INTO user (name, password, state) VALUES (?, ?, ?)";
+    MYSQL_STMT* stmt = sp->prepare(sql);
+    if (stmt == nullptr) {
+        LOG_ERROR << "Prepare statement failed";
         return false;
     }
+    
+    string name = user.getName();
+    string pwd = user.getPassword();
+    string state = user.getState();
+    
+    LOG_INFO << "Insert user: name=" << name 
+             << ", password_len=" << pwd.length() 
+             << ", state=" << state;
+    
+    MYSQL_BIND bind[3] = {0};
+    unsigned long name_len = name.size();
+    unsigned long pwd_len = pwd.size();
+    unsigned long state_len = state.size();
+    
+    bind[0].buffer_type = MYSQL_TYPE_STRING;
+    bind[0].buffer = const_cast<char*>(name.c_str());
+    bind[0].buffer_length = 256;  // 缓冲区大小
+    bind[0].length = &name_len;   // 实际长度
+    
+    bind[1].buffer_type = MYSQL_TYPE_STRING;
+    bind[1].buffer = const_cast<char*>(pwd.c_str());
+    bind[1].buffer_length = 256;  // 缓冲区大小（足够大）
+    bind[1].length = &pwd_len;    // 实际长度
+    
+    bind[2].buffer_type = MYSQL_TYPE_STRING;
+    bind[2].buffer = const_cast<char*>(state.c_str());
+    bind[2].buffer_length = 32;   // 缓冲区大小
+    bind[2].length = &state_len;  // 实际长度
+    
+    LOG_INFO << "Before executeStmt: bind[1].buffer_length=" << bind[1].buffer_length
+             << ", pwd_len=" << pwd_len;
+    
+    if (!sp->executeStmt(stmt, bind)) {
+        LOG_ERROR << "executeStmt failed";
+        sp->closeStmt(stmt);
+        return false;
+    }
+    
+    user.setId(mysql_stmt_insert_id(stmt));
+    sp->closeStmt(stmt);
+    return true;
 }
 
 User UserModel::getUserById(int id)
 {
-    char sql[1024] = {0};
-    sprintf(sql, "SELECT id, name, password, state FROM user WHERE id = %d", id);
-    shared_ptr<MySQL> sp = ConnectionPool::getConnectionPool()->getConnection();
-
-    MYSQL_RES *res = sp->query(sql);
-    if (res != nullptr)
-    {
-        MYSQL_ROW row = mysql_fetch_row(res);
-        User user(-1, "", "", "offline");
-        if (row != nullptr)
-        {
-            user.setId(atoi(row[0]));
-            user.setName(row[1] ? row[1] : "");
-            user.setPassword(row[2] ? row[2] : "");
-            user.setState(row[3] ? row[3] : "");
-        }
-        mysql_free_result(res); // 释放资源
-        return user;
-    }
-    else
-    {
+    auto sp = ConnectionPool::getConnectionPool()->getConnection();
+    
+    const string sql = "SELECT id, name, password, state FROM user WHERE id = ?";
+    MYSQL_STMT* stmt = sp->prepare(sql);
+    if (stmt == nullptr) {
         return User();
     }
+    
+    MYSQL_BIND param[1] = {0};
+    param[0].buffer_type = MYSQL_TYPE_LONG;
+    param[0].buffer = &id;
+    
+    if (!sp->executeStmt(stmt, param)) {
+        sp->closeStmt(stmt);
+        return User();
+    }
+    
+    int result_id = 0;
+    char result_name[256] = {0};
+    char result_pwd[256] = {0};
+    char result_state[32] = {0};
+    unsigned long name_len = 0, pwd_len = 0, state_len = 0;
+    
+    MYSQL_BIND result[4] = {0};
+    result[0].buffer_type = MYSQL_TYPE_LONG;
+    result[0].buffer = &result_id;
+    
+    result[1].buffer_type = MYSQL_TYPE_STRING;
+    result[1].buffer = result_name;
+    result[1].buffer_length = sizeof(result_name);
+    result[1].length = &name_len;
+    
+    result[2].buffer_type = MYSQL_TYPE_STRING;
+    result[2].buffer = result_pwd;
+    result[2].buffer_length = sizeof(result_pwd);
+    result[2].length = &pwd_len;
+    
+    result[3].buffer_type = MYSQL_TYPE_STRING;
+    result[3].buffer = result_state;
+    result[3].buffer_length = sizeof(result_state);
+    result[3].length = &state_len;
+    
+    if (mysql_stmt_bind_result(stmt, result) != 0) {
+        sp->closeStmt(stmt);
+        return User();
+    }
+    
+    User user(-1, "", "", "offline");
+    if (mysql_stmt_fetch(stmt) == 0) {
+        user.setId(result_id);
+        user.setName(string(result_name, name_len));
+        user.setPassword(string(result_pwd, pwd_len));
+        user.setState(string(result_state, state_len));
+    }
+    
+    sp->closeStmt(stmt);
+    return user;
 }
 
 bool UserModel::updateUserInfo(const User &user)
 {
-    char sql[1024] = {0};
-    sprintf(sql, "UPDATE user SET name = '%s', password = '%s', state = '%s' WHERE id = %d",
-            user.getName().c_str(), user.getPassword().c_str(), user.getState().c_str(), user.getId());
-    shared_ptr<MySQL> sp = ConnectionPool::getConnectionPool()->getConnection();
-
-    if (sp->update(sql))
-    {
-        return true;
-    }
-    else
-    {
+    auto sp = ConnectionPool::getConnectionPool()->getConnection();
+    
+    const string sql = "UPDATE user SET name = ?, password = ?, state = ? WHERE id = ?";
+    MYSQL_STMT* stmt = sp->prepare(sql);
+    if (stmt == nullptr) {
         return false;
     }
+    
+    string name = user.getName();
+    string pwd = user.getPassword();
+    string state = user.getState();
+    int id = user.getId();
+    
+    MYSQL_BIND bind[4] = {0};
+    unsigned long name_len = name.size();
+    unsigned long pwd_len = pwd.size();
+    unsigned long state_len = state.size();
+    
+    bind[0].buffer_type = MYSQL_TYPE_STRING;
+    bind[0].buffer = const_cast<char*>(name.c_str());
+    bind[0].buffer_length = name_len;
+    bind[0].length = &name_len;
+    
+    bind[1].buffer_type = MYSQL_TYPE_STRING;
+    bind[1].buffer = const_cast<char*>(pwd.c_str());
+    bind[1].buffer_length = pwd_len;
+    bind[1].length = &pwd_len;
+    
+    bind[2].buffer_type = MYSQL_TYPE_STRING;
+    bind[2].buffer = const_cast<char*>(state.c_str());
+    bind[2].buffer_length = state_len;
+    bind[2].length = &state_len;
+    
+    bind[3].buffer_type = MYSQL_TYPE_LONG;
+    bind[3].buffer = &id;
+    
+    bool result = sp->executeStmt(stmt, bind);
+    sp->closeStmt(stmt);
+    return result;
 }
 
 void UserModel::resetState()
 {
-    // 把所有在线用户的状态设置为离线
-    char sql[1024] = "UPDATE user SET state = 'offline' WHERE state = 'online'";
-    shared_ptr<MySQL> sp = ConnectionPool::getConnectionPool()->getConnection();
+    auto sp = ConnectionPool::getConnectionPool()->getConnection();
+    const string sql = "UPDATE user SET state = 'offline' WHERE state = 'online'";
     sp->update(sql);
 }

@@ -9,50 +9,109 @@ using namespace std;
 
 bool GroupModel::createGroup(Group &group)
 {
-    char sql[1024] = {0};
-    sprintf(sql, "INSERT INTO allgroup(groupname, groupdesc) VALUES('%s', '%s')",
-            group.getName().c_str(), group.getDesc().c_str());
-    shared_ptr<MySQL> sp = ConnectionPool::getConnectionPool()->getConnection();
-    if (sp->update(sql))
-    {
-        group.setId(mysql_insert_id(sp->getMySQL()));
-        // LOG_INFO << "groupid: " << group.getId() << " 创建成功";
-        return true;
+    auto sp = ConnectionPool::getConnectionPool()->getConnection();
+    
+    const string sql = "INSERT INTO allgroup(groupname, groupdesc) VALUES(?, ?)";
+    MYSQL_STMT* stmt = sp->prepare(sql);
+    if (stmt == nullptr) {
+        return false;
     }
-    return false;
+    
+    string name = group.getName();
+    string desc = group.getDesc();
+    
+    MYSQL_BIND bind[2] = {0};
+    unsigned long name_len = name.size();
+    unsigned long desc_len = desc.size();
+    
+    bind[0].buffer_type = MYSQL_TYPE_STRING;
+    bind[0].buffer = const_cast<char*>(name.c_str());
+    bind[0].buffer_length = name_len;
+    bind[0].length = &name_len;
+    
+    bind[1].buffer_type = MYSQL_TYPE_STRING;
+    bind[1].buffer = const_cast<char*>(desc.c_str());
+    bind[1].buffer_length = desc_len;
+    bind[1].length = &desc_len;
+    
+    if (!sp->executeStmt(stmt, bind)) {
+        sp->closeStmt(stmt);
+        return false;
+    }
+    
+    group.setId(mysql_stmt_insert_id(stmt));
+    sp->closeStmt(stmt);
+    return true;
 }
 
 bool GroupModel::addGroup(int userid, int groupid, string role)
 {
-    char sql[1024] = {0};
-    sprintf(sql, "SELECT * FROM allgroup WHERE id=%d", groupid);
-    shared_ptr<MySQL> sp = ConnectionPool::getConnectionPool()->getConnection();
-    if (sp->query(sql))
-    {
-        sprintf(sql, "INSERT INTO groupuser(groupid, userid, grouprole) VALUES(%d, %d, '%s')",
-                groupid, userid, role.c_str());
-        if (sp->update(sql))
-        {
-            // LOG_INFO << "userid: " << userid << " 加入 groupid: " << groupid << " 成功";
-            return true;
-        }
-        else
-        {
-            LOG_ERROR << "userid: " << userid << " 加入 groupid: " << groupid << " 失败";
-            return false;
-        }
-    }
-    else
-    {
-        LOG_ERROR << "groupid: " << groupid << " 不存在";
+    auto sp = ConnectionPool::getConnectionPool()->getConnection();
+    
+    // 先检查群组是否存在
+    const string checkSql = "SELECT id FROM allgroup WHERE id = ?";
+    MYSQL_STMT* checkStmt = sp->prepare(checkSql);
+    if (checkStmt == nullptr) {
         return false;
     }
+    
+    MYSQL_BIND checkParam[1] = {0};
+    checkParam[0].buffer_type = MYSQL_TYPE_LONG;
+    checkParam[0].buffer = &groupid;
+    
+    if (!sp->executeStmt(checkStmt, checkParam)) {
+        sp->closeStmt(checkStmt);
+        return false;
+    }
+    
+    int result_id = 0;
+    MYSQL_BIND checkResult[1] = {0};
+    checkResult[0].buffer_type = MYSQL_TYPE_LONG;
+    checkResult[0].buffer = &result_id;
+    
+    if (mysql_stmt_bind_result(checkStmt, checkResult) != 0 ||
+        mysql_stmt_fetch(checkStmt) != 0) {
+        LOG_ERROR << "groupid: " << groupid << " 不存在";
+        sp->closeStmt(checkStmt);
+        return false;
+    }
+    sp->closeStmt(checkStmt);
+    
+    // 插入群成员
+    const string insertSql = "INSERT INTO groupuser(groupid, userid, grouprole) VALUES(?, ?, ?)";
+    MYSQL_STMT* insertStmt = sp->prepare(insertSql);
+    if (insertStmt == nullptr) {
+        return false;
+    }
+    
+    MYSQL_BIND insertBind[3] = {0};
+    unsigned long role_len = role.size();
+    
+    insertBind[0].buffer_type = MYSQL_TYPE_LONG;
+    insertBind[0].buffer = &groupid;
+    
+    insertBind[1].buffer_type = MYSQL_TYPE_LONG;
+    insertBind[1].buffer = &userid;
+    
+    insertBind[2].buffer_type = MYSQL_TYPE_STRING;
+    insertBind[2].buffer = const_cast<char*>(role.c_str());
+    insertBind[2].buffer_length = role_len;
+    insertBind[2].length = &role_len;
+    
+    if (!sp->executeStmt(insertStmt, insertBind)) {
+        LOG_ERROR << "userid: " << userid << " 加入 groupid: " << groupid << " 失败";
+        sp->closeStmt(insertStmt);
+        return false;
+    }
+    
+    sp->closeStmt(insertStmt);
+    return true;
 }
 
 // 查询用户所在群组并返回群组中所有用户信息
 vector<Group> GroupModel::queryGroups(int userid)
 {
-    shared_ptr<MySQL> sp = ConnectionPool::getConnectionPool()->getConnection();
+    ConnectionPool::ConnectionPtr sp = ConnectionPool::getConnectionPool()->getConnection();
     // 单次 SQL 查询所有数据
     char sql[1024] = {0};
     snprintf(sql, sizeof(sql),
@@ -130,7 +189,7 @@ vector<groupUser> GroupModel::groupUsers(int groupid)
 {
     char sql[1024] = {0};
     sprintf(sql, "SELECT * FROM allgroup WHERE id=%d", groupid);
-    shared_ptr<MySQL> sp = ConnectionPool::getConnectionPool()->getConnection();
+    ConnectionPool::ConnectionPtr sp = ConnectionPool::getConnectionPool()->getConnection();
 
     MYSQL_RES *res = sp->query(sql);
     if (res)
