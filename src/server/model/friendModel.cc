@@ -1,6 +1,6 @@
 #include "friendModel.hpp"
 #include "commonConnectionPool.hpp"
-#include <muduo/base/Logging.h>
+#include "log.h"
 using namespace std;
 
 FriendModel::FriendModel()
@@ -25,7 +25,9 @@ void FriendModel::insert(int userid, int friendid)
     bind[1].buffer_type = MYSQL_TYPE_LONG;
     bind[1].buffer = &friendid;
     
-    sp->executeStmt(stmt, bind);
+    if (!sp->executeStmt(stmt, bind)) {
+        LOG_ERROR << "Failed to insert friend relation: userid=" << userid << ", friendid=" << friendid;
+    }
     sp->closeStmt(stmt);
 }
 

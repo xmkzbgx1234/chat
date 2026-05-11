@@ -75,6 +75,11 @@ void AuthService::login(const TcpConnectionPtr &conn, json &js, Timestamp time)
     
     User user = _userModel.getUserById(id);
 
+    if (user.getId() == -1 || user.getPassword().empty()) {
+        conn->send(encodeMessage(ResponseBuilder::error(LOGIN_MSG_ACK, ErrorCode::AUTH_LOGIN_FAILED, "用户不存在或密码错误").dump()));
+        return;
+    }
+
     bool passwordValid = PasswordEncryptor::getInstance().verifyPassword(
         password,           // 用户输入的明文密码
         user.getPassword()  // 数据库中的哈希值

@@ -1,6 +1,6 @@
 #include "UserModel.hpp"
 #include "commonConnectionPool.hpp"
-#include <muduo/base/Logging.h>
+#include "log.h"
 
 using namespace std;
 
@@ -32,21 +32,18 @@ bool UserModel::insert(User &user)
     
     bind[0].buffer_type = MYSQL_TYPE_STRING;
     bind[0].buffer = const_cast<char*>(name.c_str());
-    bind[0].buffer_length = 256;  // 缓冲区大小
-    bind[0].length = &name_len;   // 实际长度
+    bind[0].buffer_length = name_len;
+    bind[0].length = &name_len;
     
     bind[1].buffer_type = MYSQL_TYPE_STRING;
     bind[1].buffer = const_cast<char*>(pwd.c_str());
-    bind[1].buffer_length = 256;  // 缓冲区大小（足够大）
-    bind[1].length = &pwd_len;    // 实际长度
+    bind[1].buffer_length = pwd_len;
+    bind[1].length = &pwd_len;
     
     bind[2].buffer_type = MYSQL_TYPE_STRING;
     bind[2].buffer = const_cast<char*>(state.c_str());
-    bind[2].buffer_length = 32;   // 缓冲区大小
-    bind[2].length = &state_len;  // 实际长度
-    
-    LOG_INFO << "Before executeStmt: bind[1].buffer_length=" << bind[1].buffer_length
-             << ", pwd_len=" << pwd_len;
+    bind[2].buffer_length = state_len;
+    bind[2].length = &state_len;
     
     if (!sp->executeStmt(stmt, bind)) {
         LOG_ERROR << "executeStmt failed";
@@ -166,6 +163,19 @@ bool UserModel::updateUserInfo(const User &user)
 void UserModel::resetState()
 {
     auto sp = ConnectionPool::getConnectionPool()->getConnection();
+    
     const string sql = "UPDATE user SET state = 'offline' WHERE state = 'online'";
-    sp->update(sql);
+    MYSQL_STMT* stmt = sp->prepare(sql);
+    if (stmt == nullptr) {
+        LOG_ERROR << "Prepare statement failed in resetState";
+        return;
+    }
+    
+    if (!sp->executeStmt(stmt, nullptr)) {
+        LOG_ERROR << "executeStmt failed in resetState";
+        sp->closeStmt(stmt);
+        return;
+    }
+    
+    sp->closeStmt(stmt);
 }

@@ -6,6 +6,8 @@
 #include "IService.hpp"
 #include "log.h"
 #include "public.hpp"
+#include "responseBuilder.hpp"
+#include "errorCode.hpp"
 
 using namespace std;
 using namespace placeholders;
@@ -64,17 +66,25 @@ void ChatServer::onMessage(const TcpConnectionPtr & conn,
         buffer->retrieve(bodySize);
         LOG_DEBUG << "recv data:" << msg << " time:" << receiveTime.toString();
 
-        try
+        json js = json::parse(msg, nullptr, false);
+        if (js.is_discarded())
         {
-            json js = json::parse(msg);
-            auto msgHandler = IService::instance()->getHandler(js["msgid"].get<int>());
-            if(msgHandler){
-                msgHandler(conn, js, receiveTime);
-            }
+            LOG_WARN << "Parse client JSON failed from " << conn->peerAddress().toIpPort();
+            conn->send(encodeMessage(ResponseBuilder::error(-1, ErrorCode::INVALID_PARAM, "JSON解析失败").dump()));
+            continue;
         }
-        catch (const std::exception &e)
+
+        if (!js.contains("msgid") || !js["msgid"].is_number_integer())
         {
-            LOG_WARN << "Parse client JSON failed: " << e.what();
+            LOG_WARN << "Invalid msgid from " << conn->peerAddress().toIpPort();
+            conn->send(encodeMessage(ResponseBuilder::error(-1, ErrorCode::INVALID_PARAM, "无效的消息ID").dump()));
+            continue;
+        }
+
+        auto msgHandler = IService::instance()->getHandler(js["msgid"].get<int>());
+        if (msgHandler)
+        {
+            msgHandler(conn, js, receiveTime);
         }
     }
 }

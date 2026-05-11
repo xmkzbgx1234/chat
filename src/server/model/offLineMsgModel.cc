@@ -1,20 +1,21 @@
-#include <muduo/base/Logging.h>
 #include "offLineMsgModel.hpp"
 #include "commonConnectionPool.hpp"
+#include "log.h"
 
 using namespace std;
 
-// 存储离线消息的具体实现
 void OffLineMsgModel::insert(int id, const string &msg)
 {
     auto sp = ConnectionPool::getConnectionPool()->getConnection();
     if (sp == nullptr) {
+        LOG_ERROR << "Failed to get connection for insert offline message";
         return;
     }
     
     const string sql = "INSERT INTO offlinemessage (userid, message) VALUES (?, ?)";
     MYSQL_STMT* stmt = sp->prepare(sql);
     if (stmt == nullptr) {
+        LOG_ERROR << "Failed to prepare statement for insert offline message";
         return;
     }
     
@@ -29,17 +30,24 @@ void OffLineMsgModel::insert(int id, const string &msg)
     bind[1].buffer_length = msg_len;
     bind[1].length = &msg_len;
     
-    sp->executeStmt(stmt, bind);
+    if (!sp->executeStmt(stmt, bind)) {
+        LOG_ERROR << "Failed to insert offline message for userid=" << id;
+    }
     sp->closeStmt(stmt);
 }
 
 void OffLineMsgModel::remove(int userId)
 {
     auto sp = ConnectionPool::getConnectionPool()->getConnection();
+    if (sp == nullptr) {
+        LOG_ERROR << "Failed to get connection for remove offline message";
+        return;
+    }
     
     const string sql = "DELETE FROM offlinemessage WHERE userid = ?";
     MYSQL_STMT* stmt = sp->prepare(sql);
     if (stmt == nullptr) {
+        LOG_ERROR << "Failed to prepare statement for remove offline message";
         return;
     }
     
@@ -47,7 +55,9 @@ void OffLineMsgModel::remove(int userId)
     bind[0].buffer_type = MYSQL_TYPE_LONG;
     bind[0].buffer = &userId;
     
-    sp->executeStmt(stmt, bind);
+    if (!sp->executeStmt(stmt, bind)) {
+        LOG_ERROR << "Failed to remove offline message for userid=" << userId;
+    }
     sp->closeStmt(stmt);
 }
 

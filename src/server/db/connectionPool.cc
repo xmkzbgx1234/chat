@@ -56,13 +56,14 @@ ConnectionPool::ConnectionPool() {
 	}
 	for (int i = 0; i < _initSize; ++i) {
 		MySQL* p = new MySQL();
-		bool res = p->connect(_ip, _port, _username, _password, _dbname);
-		if (!res) {
+		if (p->connect(_ip, _port, _username, _password, _dbname)) {
+			p->refreshAliveTime();
+			_connectionQue.push(p);
+			_connectionCnt++;
+		} else {
 			LOG_ERROR << "Initial MySQL connection failed";
+			delete p;
 		}
-		p->refreshAliveTime(); //刷新连接的起始空闲时间
-		_connectionQue.push(p);
-		_connectionCnt++;
 	}
 	thread produce(std::bind(&ConnectionPool::produceConnectionTask, this));
 	produce.detach(); // 启动一个独立的线程用于生产连接
@@ -88,10 +89,13 @@ void ConnectionPool::produceConnectionTask() {
 			// 连接数量没有达到上限，继续生产新的连接
 			if (_connectionCnt < _maxSize) {
 				MySQL* p = new MySQL();
-				p->connect(_ip, _port, _username, _password, _dbname);
-				p->refreshAliveTime(); //刷新连接的起始空闲时间
-				_connectionQue.push(p);
-				_connectionCnt++;
+				if (p->connect(_ip, _port, _username, _password, _dbname)) {
+					p->refreshAliveTime();
+					_connectionQue.push(p);
+					_connectionCnt++;
+				} else {
+					delete p;
+				}
 			}
 		}
 		cv.notify_one(); //通知消费者线程可以消费连接了
@@ -125,18 +129,26 @@ ConnectionPool::ConnectionPtr ConnectionPool::getConnection() {
 
 void ConnectionPool::scannerConnectionTask() {
 	while (true) {
-		this_thread::sleep_for(chrono::seconds(_maxIdletime)); //定时扫描
-		unique_lock<mutex> lock(_queueMutex);
-		while (_connectionCnt > _initSize) { //保证连接池数量不小于初始连接数
-			MySQL* p = _connectionQue.front();
-			if (p->getAliveTime() >= clock_t(_maxIdletime * CLOCKS_PER_SEC)) { //空闲时间超过最大空闲时间
-				_connectionQue.pop();
-				_connectionCnt--;
-				delete p; //销毁连接
+		this_thread::sleep_for(chrono::seconds(_maxIdletime));
+		
+		vector<MySQL*> toDelete;
+		{
+			unique_lock<mutex> lock(_queueMutex);
+			while (_connectionCnt > _initSize) {
+				MySQL* p = _connectionQue.front();
+				if (p->getAliveTime() >= clock_t(_maxIdletime * CLOCKS_PER_SEC)) {
+					_connectionQue.pop();
+					_connectionCnt--;
+					toDelete.push_back(p);
+				}
+				else {
+					break;
+				}
 			}
-			else {
-				break; //队头连接没有超过最大空闲时间，后续连接更不会超过，直接跳出循环
-			}
+		}
+		
+		for (MySQL* p : toDelete) {
+			delete p;
 		}
 	}
 }
