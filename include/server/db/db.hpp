@@ -31,9 +31,17 @@ public:
 
 	// 获取当前连接的MYSQL指针
 	MYSQL* getMySQL();
+
+	// 检测连接是否存活，不存活则尝试重连
+	bool ping();
 private:
 	MYSQL* _conn;
 	clock_t _aliveTime; // 连接的空闲时间
+	std::string _ip;
+	unsigned short _port = 0;
+	std::string _user;
+	std::string _password;
+	std::string _dbname;
 };
 
 #endif // DB_HPP

@@ -123,6 +123,26 @@ ConnectionPool::ConnectionPtr ConnectionPool::getConnection() {
 	_connectionQue.pop();
 	lock.unlock();
 	cv.notify_all(); // 通知生产者线程队列是否为空，以便生产新连接
+
+	// 取出连接后检测是否存活，不存活则重新连接
+	if (!conn->ping())
+	{
+		LOG_WARN << "Dead connection detected, replacing with new one";
+		delete conn;
+		MySQL* newConn = new MySQL();
+		if (newConn->connect(_ip, _port, _username, _password, _dbname))
+		{
+			newConn->refreshAliveTime();
+			conn = newConn;
+		}
+		else
+		{
+			LOG_ERROR << "Failed to create replacement connection";
+			delete newConn;
+			_connectionCnt--;
+			return ConnectionPtr(nullptr, deleter);
+		}
+	}
 		
 	return ConnectionPtr(conn, deleter);
 }

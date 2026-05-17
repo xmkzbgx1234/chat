@@ -28,6 +28,16 @@ bool MySQL::connect(string ip,
 	string password,
 	string dbname)
 {
+	_ip = ip;
+	_port = port;
+	_user = user;
+	_password = password;
+	_dbname = dbname;
+
+	// 启用自动重连
+	my_bool reconnect = 1;
+	mysql_options(_conn, MYSQL_OPT_RECONNECT, &reconnect);
+
 	MYSQL *p = mysql_real_connect(_conn, ip.c_str(), user.c_str(),
 		password.c_str(), dbname.c_str(), port, nullptr, 0);
 	if (p == nullptr) {
@@ -38,6 +48,29 @@ bool MySQL::connect(string ip,
 		LOG_DEBUG << "mysql_real_connect success";
 	}
 	mysql_query(_conn, "SET NAMES gbk");
+	return true;
+}
+
+bool MySQL::ping()
+{
+	if (_conn == nullptr) return false;
+	if (mysql_ping(_conn) == 0) return true;
+	// ping失败，尝试重连
+	LOG_WARN << "MySQL ping failed, attempting reconnect";
+	mysql_close(_conn);
+	_conn = mysql_init(nullptr);
+	if (_conn == nullptr) return false;
+	my_bool reconnect = 1;
+	mysql_options(_conn, MYSQL_OPT_RECONNECT, &reconnect);
+	MYSQL *p = mysql_real_connect(_conn, _ip.c_str(), _user.c_str(),
+		_password.c_str(), _dbname.c_str(), _port, nullptr, 0);
+	if (p == nullptr)
+	{
+		LOG_ERROR << "MySQL reconnect failed";
+		return false;
+	}
+	mysql_query(_conn, "SET NAMES gbk");
+	LOG_INFO << "MySQL reconnect success";
 	return true;
 }
 
