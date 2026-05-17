@@ -35,7 +35,7 @@ bool MySQL::connect(string ip,
 	_dbname = dbname;
 
 	// 启用自动重连
-	my_bool reconnect = 1;
+	bool reconnect = 1;
 	mysql_options(_conn, MYSQL_OPT_RECONNECT, &reconnect);
 
 	MYSQL *p = mysql_real_connect(_conn, ip.c_str(), user.c_str(),
@@ -60,7 +60,7 @@ bool MySQL::ping()
 	mysql_close(_conn);
 	_conn = mysql_init(nullptr);
 	if (_conn == nullptr) return false;
-	my_bool reconnect = 1;
+	bool reconnect = 1;
 	mysql_options(_conn, MYSQL_OPT_RECONNECT, &reconnect);
 	MYSQL *p = mysql_real_connect(_conn, _ip.c_str(), _user.c_str(),
 		_password.c_str(), _dbname.c_str(), _port, nullptr, 0);
