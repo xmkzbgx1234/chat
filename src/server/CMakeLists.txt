@@ -6,10 +6,11 @@ aux_source_directory(../common COMMON_LIST)
 aux_source_directory(./redis REDIS_LIST)
 aux_source_directory(./service SERVICE_LIST)
 aux_source_directory(./utils UTILS_LIST)
+aux_source_directory(./game GAME_LIST)
 
 add_executable(chat_server ${SRC_LIST} ${DB_LIST} ${MODEL_LIST} 
                             ${COMMON_LIST} ${REDIS_LIST} ${SERVICE_LIST} 
-                            ${UTILS_LIST}) 
+                            ${UTILS_LIST} ${GAME_LIST}) 
 
 target_link_libraries(chat_server
     muduo_net

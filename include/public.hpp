@@ -30,6 +30,24 @@ enum EnMsgType
     GROUP_CHAT_MSG_ACK, // 群组聊天响应消息14
     LOGINOUT_MSG, // 退出登录消息15
     KICK_OFF_MSG, // 踢下线通知消息16
+
+    // 游戏消息 20-32
+    GAME_CREATE_ROOM = 20,    // 创建房间
+    GAME_JOIN_ROOM,           // 加入房间21
+    GAME_LEAVE_ROOM,          // 离开房间22
+    GAME_ROOM_LIST,           // 房间列表23
+    GAME_ROOM_STATE,          // 房间状态广播24
+    GAME_READY,               // 准备就绪25
+    GAME_START,               // 游戏开始26
+    GAME_KEY_PRESS,           // 玩家按键27
+    GAME_HIT_RESULT,          // 命中结果28
+    GAME_APPLE_SPAWN,         // 苹果生成29
+    GAME_SCORE_UPDATE,        // 分数更新30
+    GAME_OPPONENT_STATE,      // 对手状态同步31
+    GAME_OVER,                // 游戏结束32
+    GAME_LEADERBOARD,         // 排行榜请求33
+    GAME_LEADERBOARD_ACK,     // 排行榜响应34
+    GAME_OPPONENT_HIT,        // 对手命中通知35
 };
 
 static const std::size_t header_size = sizeof(uint32_t);

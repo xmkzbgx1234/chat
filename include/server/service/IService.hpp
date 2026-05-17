@@ -18,6 +18,9 @@
 #include "friendService.hpp"
 #include "authService.hpp"
 #include "onlineUserManager.hpp"
+#include "gameService.hpp"
+#include "gameRoomManager.hpp"
+#include "gameRecordModel.hpp"
 
 using MsgHandler = std::function<void(const muduo::net::TcpConnectionPtr& conn, nlohmann::json &js, muduo::Timestamp time)>;
 
@@ -62,6 +65,11 @@ private:
     GroupService _groupService;
     FriendService _friendService;
     AuthService _authService;
+
+    // 游戏模块
+    GameRoomManager& _gameRoomManager;
+    GameRecordModel _gameRecordModel;
+    GameService _gameService;
 };
 
 

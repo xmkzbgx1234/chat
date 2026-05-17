@@ -35,12 +35,12 @@ void GroupService::createGroup(const TcpConnectionPtr &conn, json &js, Timestamp
     string groupdesc = Validator::getString(js, "groupdesc", "");
     
     if (!Validator::isValidUserId(userid)) {
-        conn->send(encodeMessage(ResponseBuilder::error(CREATE_GROUP_MSG_ACK, ErrorCode::INVALID_PARAM, "无效的用户ID").dump()));
+        conn->send(encodeMessage(ResponseBuilder::error(CREATE_GROUP_MSG_ACK, ErrorCode::INVALID_USER_ID, "无效的用户ID").dump()));
         return;
     }
     
     if (!Validator::isValidGroupName(groupname)) {
-        conn->send(encodeMessage(ResponseBuilder::error(CREATE_GROUP_MSG_ACK, ErrorCode::INVALID_PARAM, "群名不能为空且长度不能超过128个字符").dump()));
+        conn->send(encodeMessage(ResponseBuilder::error(CREATE_GROUP_MSG_ACK, ErrorCode::GROUP_NAME_INVALID, "群名不能为空且长度不能超过128个字符").dump()));
         return;
     }
     
@@ -69,12 +69,12 @@ void GroupService::addGroup(const TcpConnectionPtr &conn, json &js, Timestamp ti
     int groupid = Validator::getInt(js, "groupid", -1);
     
     if (!Validator::isValidUserId(userid)) {
-        conn->send(encodeMessage(ResponseBuilder::error(ADD_GROUP_MSG_ACK, ErrorCode::INVALID_PARAM, "无效的用户ID").dump()));
+        conn->send(encodeMessage(ResponseBuilder::error(ADD_GROUP_MSG_ACK, ErrorCode::INVALID_USER_ID, "无效的用户ID").dump()));
         return;
     }
     
     if (!Validator::isValidGroupId(groupid)) {
-        conn->send(encodeMessage(ResponseBuilder::error(ADD_GROUP_MSG_ACK, ErrorCode::INVALID_PARAM, "无效的群组ID").dump()));
+        conn->send(encodeMessage(ResponseBuilder::error(ADD_GROUP_MSG_ACK, ErrorCode::INVALID_GROUP_ID, "无效的群组ID").dump()));
         return;
     }
     

@@ -170,7 +170,7 @@ vector<json> ChatMessageModel::queryUserMessages(int userId, long long lastMessa
         return messages;
     }
 
-    MYSQL_RES* res = sp->executeStmtQuery(stmt);
+    MYSQL_RES* res = sp->queryStmt(stmt, nullptr);
     if (res == nullptr)
     {
         sp->closeStmt(stmt);
@@ -183,9 +183,9 @@ vector<json> ChatMessageModel::queryUserMessages(int userId, long long lastMessa
     unsigned long session_len = 0;
     int from_userid = 0;
     int to_userid = 0;
-    my_bool to_userid_null = 0;
+    bool to_userid_null = 0;
     int group_id = 0;
-    my_bool group_id_null = 0;
+    bool group_id_null = 0;
     char content[65536] = {0};
     unsigned long content_len = 0;
     char msg_time[64] = {0};

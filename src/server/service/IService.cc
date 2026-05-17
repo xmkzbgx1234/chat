@@ -15,6 +15,9 @@
 #include "friendService.hpp"
 #include "authService.hpp"
 #include "onlineUserManager.hpp"
+#include "gameService.hpp"
+#include "gameRoomManager.hpp"
+#include "gameRecordModel.hpp"
 #include "log.h"
 
 #define MSGHANDLER(msg, handler) _msgHandlerMap[msg] = [this](const TcpConnectionPtr& conn, json& js, Timestamp time) { handler(conn, js, time);}
@@ -41,7 +44,10 @@ IService::IService() :
     _chatService(_userModel, _offLineMsgModel, _groupModel, _chatMessageModel, _redis, _onlineUserManager),
     _groupService(_groupModel),
     _friendService(_userModel, _friendModel),
-    _authService(_userModel, _offLineMsgModel, _friendModel, _groupModel, _chatMessageModel, _redis, _onlineUserManager)
+    _authService(_userModel, _offLineMsgModel, _friendModel, _groupModel, _chatMessageModel, _redis, _onlineUserManager),
+    _gameRoomManager(GameRoomManager::instance()),
+    _gameRecordModel(GameRecordModel()),
+    _gameService(_gameRoomManager, _gameRecordModel)
 {
 
     // 1. 注册消息处理函数
@@ -53,6 +59,15 @@ IService::IService() :
     MSGHANDLER(CREATE_GROUP_MSG, _groupService.handleMessage);
     MSGHANDLER(ONE_CHAT_MSG, _chatService.handleMessage);
     MSGHANDLER(GROUP_CHAT_MSG, _chatService.handleMessage);
+
+    // 3. 注册游戏消息处理函数
+    MSGHANDLER(GAME_CREATE_ROOM, _gameService.handleMessage);
+    MSGHANDLER(GAME_JOIN_ROOM, _gameService.handleMessage);
+    MSGHANDLER(GAME_LEAVE_ROOM, _gameService.handleMessage);
+    MSGHANDLER(GAME_ROOM_LIST, _gameService.handleMessage);
+    MSGHANDLER(GAME_READY, _gameService.handleMessage);
+    MSGHANDLER(GAME_KEY_PRESS, _gameService.handleMessage);
+    MSGHANDLER(GAME_LEADERBOARD, _gameService.handleMessage);
 
     // 2. 连接Redis
     if (_redis.connect()) {

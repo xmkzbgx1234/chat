@@ -27,6 +27,7 @@ include_directories(${PROJECT_SOURCE_DIR}/include/server/service)
 include_directories(${PROJECT_SOURCE_DIR}/include/common)
 include_directories(${PROJECT_SOURCE_DIR}/include/server/redis)
 include_directories(${PROJECT_SOURCE_DIR}/include/server/utils)
+include_directories(${PROJECT_SOURCE_DIR}/include/server/game)
 
 # 指定搜索的子目录
 add_subdirectory(src)

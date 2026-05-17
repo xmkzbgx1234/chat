@@ -53,17 +53,17 @@ void ChatService::oneChat(const TcpConnectionPtr &conn, json &js, Timestamp time
     string msgTime = Validator::getString(js, "time", "");
     
     if (!Validator::isValidUserId(toid)) {
-        conn->send(encodeMessage(ResponseBuilder::error(ONE_CHAT_MSG_ACK, ErrorCode::INVALID_PARAM, "无效的目标用户ID").dump()));
+        conn->send(encodeMessage(ResponseBuilder::error(ONE_CHAT_MSG_ACK, ErrorCode::INVALID_USER_ID, "无效的目标用户ID").dump()));
         return;
     }
     
     if (!Validator::isValidUserId(fromid)) {
-        conn->send(encodeMessage(ResponseBuilder::error(ONE_CHAT_MSG_ACK, ErrorCode::INVALID_PARAM, "无效的发送者ID").dump()));
+        conn->send(encodeMessage(ResponseBuilder::error(ONE_CHAT_MSG_ACK, ErrorCode::INVALID_USER_ID, "无效的发送者ID").dump()));
         return;
     }
     
     if (!Validator::isValidMessage(msg)) {
-        conn->send(encodeMessage(ResponseBuilder::error(ONE_CHAT_MSG_ACK, ErrorCode::INVALID_PARAM, "消息内容不能为空且不能超过6000个字符").dump()));
+        conn->send(encodeMessage(ResponseBuilder::error(ONE_CHAT_MSG_ACK, ErrorCode::INVALID_MESSAGE, "消息内容不能为空且不能超过6000个字符").dump()));
         return;
     }
     
@@ -72,7 +72,7 @@ void ChatService::oneChat(const TcpConnectionPtr &conn, json &js, Timestamp time
     if (touser.getId() == -1)
     {
         LOG_WARN << "oneChat target user does not exist: " << toid;
-        conn->send(encodeMessage(ResponseBuilder::error(ONE_CHAT_MSG_ACK, ErrorCode::USER_NOT_FOUND, "目标用户不存在，消息发送失败").dump()));
+        conn->send(encodeMessage(ResponseBuilder::error(ONE_CHAT_MSG_ACK, ErrorCode::MSG_TARGET_NOT_FOUND, "目标用户不存在，消息发送失败").dump()));
         return;
     }
     long long messageId = _chatMessageModel.insertSingleMessage(fromid, toid, msg, msgTime);
@@ -101,7 +101,7 @@ void ChatService::oneChat(const TcpConnectionPtr &conn, json &js, Timestamp time
             LOG_INFO << "Forward oneChat through Redis, toid=" << toid;
             if (ret != 0)
             {
-                conn->send(encodeMessage(ResponseBuilder::error(ONE_CHAT_MSG_ACK, ErrorCode::REDIS_ERROR, "消息发送失败").dump()));
+                conn->send(encodeMessage(ResponseBuilder::error(ONE_CHAT_MSG_ACK, ErrorCode::NET_DISCONNECTED, "消息发送失败").dump()));
                 return;
             }
             json response = ResponseBuilder::success(ONE_CHAT_MSG_ACK, "消息发送成功");
@@ -126,17 +126,17 @@ void ChatService::groupChat(const TcpConnectionPtr &conn, json &js, Timestamp ti
     string msg = Validator::getString(js, "msg", "");
     
     if (!Validator::isValidUserId(userid)) {
-        conn->send(encodeMessage(ResponseBuilder::error(GROUP_CHAT_MSG_ACK, ErrorCode::INVALID_PARAM, "无效的用户ID").dump()));
+        conn->send(encodeMessage(ResponseBuilder::error(GROUP_CHAT_MSG_ACK, ErrorCode::INVALID_USER_ID, "无效的用户ID").dump()));
         return;
     }
     
     if (!Validator::isValidGroupId(groupid)) {
-        conn->send(encodeMessage(ResponseBuilder::error(GROUP_CHAT_MSG_ACK, ErrorCode::INVALID_PARAM, "无效的群组ID").dump()));
+        conn->send(encodeMessage(ResponseBuilder::error(GROUP_CHAT_MSG_ACK, ErrorCode::INVALID_GROUP_ID, "无效的群组ID").dump()));
         return;
     }
     
     if (!Validator::isValidMessage(msg)) {
-        conn->send(encodeMessage(ResponseBuilder::error(GROUP_CHAT_MSG_ACK, ErrorCode::INVALID_PARAM, "消息内容不能为空且不能超过6000个字符").dump()));
+        conn->send(encodeMessage(ResponseBuilder::error(GROUP_CHAT_MSG_ACK, ErrorCode::INVALID_MESSAGE, "消息内容不能为空且不能超过6000个字符").dump()));
         return;
     }
     

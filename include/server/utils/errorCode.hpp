@@ -55,7 +55,20 @@ enum class ErrorCode {
     // 网络相关错误 (600-699)
     NET_DISCONNECTED = 600,
     NET_TIMEOUT = 601,
-    NET_CONNECTION_ERROR = 602
+    NET_CONNECTION_ERROR = 602,
+
+    // 游戏相关错误 (700-799)
+    GAME_ROOM_FULL = 700,
+    GAME_ROOM_NOT_FOUND = 701,
+    GAME_NOT_IN_ROOM = 702,
+    GAME_ALREADY_IN_ROOM = 703,
+    GAME_NOT_READY = 704,
+    GAME_ALREADY_STARTED = 705,
+    GAME_INVALID_KEY = 706,
+    GAME_CREATE_FAILED = 707,
+    GAME_JOIN_FAILED = 708,
+    GAME_LEAVE_FAILED = 709,
+    GAME_OPPONENT_DISCONNECTED = 710
 };
 
 // 错误码管理类
@@ -135,7 +148,20 @@ inline std::unordered_map<ErrorCode, std::string> ErrorManager::_errorMessages =
     // 网络错误
     {ErrorCode::NET_DISCONNECTED, "连接已断开"},
     {ErrorCode::NET_TIMEOUT, "操作超时"},
-    {ErrorCode::NET_CONNECTION_ERROR, "连接错误"}
+    {ErrorCode::NET_CONNECTION_ERROR, "连接错误"},
+
+    // 游戏错误
+    {ErrorCode::GAME_ROOM_FULL, "房间已满"},
+    {ErrorCode::GAME_ROOM_NOT_FOUND, "房间不存在"},
+    {ErrorCode::GAME_NOT_IN_ROOM, "不在房间中"},
+    {ErrorCode::GAME_ALREADY_IN_ROOM, "已在房间中"},
+    {ErrorCode::GAME_NOT_READY, "未准备"},
+    {ErrorCode::GAME_ALREADY_STARTED, "游戏已开始"},
+    {ErrorCode::GAME_INVALID_KEY, "无效按键"},
+    {ErrorCode::GAME_CREATE_FAILED, "创建房间失败"},
+    {ErrorCode::GAME_JOIN_FAILED, "加入房间失败"},
+    {ErrorCode::GAME_LEAVE_FAILED, "离开房间失败"},
+    {ErrorCode::GAME_OPPONENT_DISCONNECTED, "对手已断线"}
 };
 
 #endif // ERROR_CODE_HPP

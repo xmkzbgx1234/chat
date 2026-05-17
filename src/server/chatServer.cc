@@ -70,14 +70,14 @@ void ChatServer::onMessage(const TcpConnectionPtr & conn,
         if (js.is_discarded())
         {
             LOG_WARN << "Parse client JSON failed from " << conn->peerAddress().toIpPort();
-            conn->send(encodeMessage(ResponseBuilder::error(-1, ErrorCode::INVALID_PARAM, "JSON解析失败").dump()));
+            conn->send(encodeMessage(ResponseBuilder::error(-1, ErrorCode::INVALID_PARAMS, "JSON解析失败").dump()));
             continue;
         }
 
         if (!js.contains("msgid") || !js["msgid"].is_number_integer())
         {
             LOG_WARN << "Invalid msgid from " << conn->peerAddress().toIpPort();
-            conn->send(encodeMessage(ResponseBuilder::error(-1, ErrorCode::INVALID_PARAM, "无效的消息ID").dump()));
+            conn->send(encodeMessage(ResponseBuilder::error(-1, ErrorCode::INVALID_PARAMS, "无效的消息ID").dump()));
             continue;
         }
 

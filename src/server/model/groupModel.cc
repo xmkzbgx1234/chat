@@ -139,8 +139,7 @@ vector<Group> GroupModel::queryGroups(int userid)
         return {};
     }
 
-    MYSQL_RES* res = sp->executeStmtQuery(stmt);
-    if (!res)
+    MYSQL_RES* res = sp->queryStmt(stmt, nullptr);    if (!res)
     {
         LOG_ERROR << "userid: " << userid << " 所在群组查询失败";
         sp->closeStmt(stmt);
@@ -278,8 +277,7 @@ vector<groupUser> GroupModel::groupUsers(int groupid)
         return {};
     }
 
-    MYSQL_RES* res = sp->executeStmtQuery(stmt);
-    if (!res)
+    MYSQL_RES* res = sp->queryStmt(stmt, nullptr);    if (!res)
     {
         LOG_ERROR << "groupid: " << groupid << " 中的用户查询失败";
         sp->closeStmt(stmt);
