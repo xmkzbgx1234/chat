@@ -55,11 +55,13 @@ string GameRoomManager::createRoom(int player1Id, const string &player1Name,
     string rn = roomName.empty() ? player1Name + "'s room" : roomName;
 
     auto room = make_unique<GameRoom>(roomId, rn, loop);
+    room->addPlayer(player1Id, player1Name, conn);
 
     m_rooms[roomId] = move(room);
     m_playerRoomMap[player1Id] = roomId;
 
-    LOG_INFO << "Room created: " << roomId << " by player " << player1Id;
+    LOG_INFO << "Room created: " << roomId << " by player " << player1Id
+             << " name='" << player1Name << "'";
 
     // 房间已创建，handleCreateRoom 会发送响应
     return roomId;
