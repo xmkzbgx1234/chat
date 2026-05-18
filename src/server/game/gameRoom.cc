@@ -122,12 +122,6 @@ void GameRoom::removePlayer(int userId)
         LOG_INFO << "GameRoom " << m_roomId << ": countdown cancelled, player left";
     }
 }
-    else if (m_player2.userId == userId)
-    {
-        m_player2 = PlayerState{};
-        m_playerCount--;
-    }
-}
 
 void GameRoom::playerReady(int userId)
 {
