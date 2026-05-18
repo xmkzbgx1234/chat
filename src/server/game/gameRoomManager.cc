@@ -52,10 +52,9 @@ string GameRoomManager::createRoom(int player1Id, const string &player1Name,
 
     string roomId = generateRoomId();
 
-    auto room = make_unique<GameRoom>(roomId, loop);
-    room->addPlayer(player1Id, player1Name, conn);
-
     string rn = roomName.empty() ? player1Name + "'s room" : roomName;
+
+    auto room = make_unique<GameRoom>(roomId, rn, loop);
 
     m_rooms[roomId] = move(room);
     m_playerRoomMap[player1Id] = roomId;
@@ -215,6 +214,7 @@ json GameRoomManager::getRoomList() const
         {
             json info;
             info["roomId"]      = id;
+            info["roomName"]    = room->roomName();
             info["player1Name"] = room->getPlayer1()
                                       ? room->getPlayer1()->username
                                       : "";

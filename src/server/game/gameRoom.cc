@@ -14,8 +14,9 @@ using namespace muduo;
 using namespace muduo::net;
 using json = nlohmann::json;
 
-GameRoom::GameRoom(const std::string &roomId, EventLoop *loop)
+GameRoom::GameRoom(const std::string &roomId, const std::string &roomName, EventLoop *loop)
     : m_roomId(roomId)
+    , m_roomName(roomName)
     , m_loop(loop)
     , m_playerCount(0)
     , m_gameDuration(60)

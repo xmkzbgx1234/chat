@@ -56,11 +56,12 @@ public:
         bool alive = true;
     };
 
-    GameRoom(const std::string &roomId, muduo::net::EventLoop *loop);
+    GameRoom(const std::string &roomId, const std::string &roomName, muduo::net::EventLoop *loop);
     ~GameRoom();
 
     // 房间管理
     const std::string &roomId() const { return m_roomId; }
+    const std::string &roomName() const { return m_roomName; }
     State state() const { return m_state; }
     bool isFull() const;
     bool hasPlayer(int userId) const;
@@ -107,6 +108,7 @@ private:
     void onDifficultyCheckTimer();
 
     std::string m_roomId;
+    std::string m_roomName;
     State m_state = State::Waiting;
     muduo::net::EventLoop *m_loop;
 

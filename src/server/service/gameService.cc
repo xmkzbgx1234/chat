@@ -127,8 +127,9 @@ void GameService::handleLeaveRoom(const TcpConnectionPtr &conn, json &js, Timest
 
 void GameService::handleRoomList(const TcpConnectionPtr &conn, json &js, Timestamp time)
 {
-    json roomList = m_roomManager.getRoomList();
-    conn->send(encodeMessage(roomList.dump()));
+    json response = ResponseBuilder::success(GAME_ROOM_LIST, "房间列表");
+    response["rooms"] = m_roomManager.getRoomList();
+    conn->send(encodeMessage(response.dump()));
 }
 
 void GameService::handleReady(const TcpConnectionPtr &conn, json &js, Timestamp time)
