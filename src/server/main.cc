@@ -4,6 +4,8 @@
 #include "log.h"
 #include <signal.h>
 #include <string>
+#include <thread>
+#include <chrono>
 
 using namespace std;
 
@@ -51,6 +53,10 @@ int main(int argc, char *argv[])
 
     LOG_INFO << "Chat server starting on " << ip << ":" << port;
     server.start();
+
+    // 等待 worker 线程事件循环完全就绪，避免第一个连接因线程未准备好而丢包
+    std::this_thread::sleep_for(std::chrono::milliseconds(500));
+
     loop.loop();
 
     return 0;
