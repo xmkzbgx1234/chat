@@ -95,14 +95,12 @@ void GameRoom::removePlayer(int userId)
 {
     if (m_player1.userId == userId)
     {
-        m_player1.userId = -1;
-        m_player1.conn.reset();
+        m_player1 = PlayerState{};  // 完全重置，避免残留旧数据
         m_playerCount--;
     }
     else if (m_player2.userId == userId)
     {
-        m_player2.userId = -1;
-        m_player2.conn.reset();
+        m_player2 = PlayerState{};
         m_playerCount--;
     }
 }
