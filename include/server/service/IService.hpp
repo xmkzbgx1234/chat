@@ -34,6 +34,7 @@ public:
     void ClientCloseException(const muduo::net::TcpConnectionPtr& conn);
     void reset(); // 重置服务状态
     void handleRedisMessage(int channel, const std::string &message);
+    void handleUserDisconnect(int userId); // 用户断线/登出时的游戏房间清理
 
 private:
     IService();

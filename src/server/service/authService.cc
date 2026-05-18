@@ -236,4 +236,6 @@ void AuthService::loginout(const TcpConnectionPtr &conn, json &js, Timestamp tim
     _userModel.updateUserInfo(user);
     // 从在线用户管理器中移除用户
     _onlineUserManager.removeUser(userid);
+    // 清理用户所在的游戏房间
+    IService::instance()->handleUserDisconnect(userid);
 }
