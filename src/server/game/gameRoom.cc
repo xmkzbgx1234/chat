@@ -95,9 +95,33 @@ void GameRoom::removePlayer(int userId)
 {
     if (m_player1.userId == userId)
     {
-        m_player1 = PlayerState{};  // 完全重置，避免残留旧数据
+        m_player1 = PlayerState{};
         m_playerCount--;
     }
+    else if (m_player2.userId == userId)
+    {
+        m_player2 = PlayerState{};
+        m_playerCount--;
+    }
+
+    // 如果在倒计时中有玩家离开，取消倒计时并重置为等待状态
+    if (m_state == State::Countdown && m_playerCount < 2)
+    {
+        m_loop->cancel(m_countdownTimerId);
+        m_countdownRemaining = 3;
+        m_state = State::Waiting;
+
+        // 通知剩余玩家倒计时取消
+        json cancelMsg;
+        cancelMsg["msgid"] = GAME_ROOM_STATE;
+        cancelMsg["roomId"] = m_roomId;
+        cancelMsg["state"] = "Waiting";
+        cancelMsg["reason"] = "对手离开了房间";
+        broadcastToPlayers(cancelMsg);
+
+        LOG_INFO << "GameRoom " << m_roomId << ": countdown cancelled, player left";
+    }
+}
     else if (m_player2.userId == userId)
     {
         m_player2 = PlayerState{};
@@ -260,6 +284,13 @@ void GameRoom::startCountdown()
 
 void GameRoom::startGame()
 {
+    // 安全检查：必须有双方玩家才能开始
+    if (m_player1.userId == -1 || m_player2.userId == -1)
+    {
+        LOG_WARN << "GameRoom " << m_roomId << ": startGame called but not enough players";
+        return;
+    }
+
     m_state = State::Playing;
     m_gameStartTime = std::chrono::duration_cast<std::chrono::milliseconds>(
                           std::chrono::system_clock::now().time_since_epoch())
