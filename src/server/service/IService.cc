@@ -111,14 +111,16 @@ void IService::ClientCloseException(const TcpConnectionPtr &conn)
     _userModel.updateUserInfo(user);
 
     // 清理用户所在的游戏房间
-    _gameService.handleDisconnect(channel);
+    _gameRoomManager.leaveRoom(channel);
 }
 
 void IService::handleUserDisconnect(int userId)
 {
-    _gameService.handleDisconnect(userId);
+    _gameRoomManager.leaveRoom(userId);
     LOG_INFO << "IService: cleaned up game room for user " << userId;
 }
+
+void IService::handleRedisMessage(int channel, const string &message){
 
     TcpConnectionPtr conn = _onlineUserManager.getUserConn(channel);
     if(conn != nullptr)

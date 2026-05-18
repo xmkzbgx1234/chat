@@ -1,4 +1,5 @@
 #include "authService.hpp"
+#include "IService.hpp"
 #include "UserModel.hpp"
 #include "offLineMsgModel.hpp"
 #include "friendModel.hpp"
