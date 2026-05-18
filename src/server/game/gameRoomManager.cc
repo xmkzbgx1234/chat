@@ -221,6 +221,11 @@ json GameRoomManager::getRoomList() const
             info["playerCount"] = room->isFull() ? 2 : 1;
             info["state"]       = static_cast<int>(room->state());
             rooms.push_back(info);
+
+            LOG_INFO << "getRoomList: room=" << id
+                     << " player1Name='" << (room->getPlayer1() ? room->getPlayer1()->username : "null") << "'"
+                     << " playerCount=" << (room->isFull() ? 2 : 1)
+                     << " state=" << static_cast<int>(room->state());
         }
     }
 
