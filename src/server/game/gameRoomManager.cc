@@ -54,7 +54,7 @@ string GameRoomManager::createRoom(int player1Id, const string &player1Name,
 
     string rn = roomName.empty() ? player1Name + "'s room" : roomName;
 
-    auto room = make_unique<GameRoom>(roomId, rn, loop);
+    auto room = make_shared<GameRoom>(roomId, rn, loop);
     room->addPlayer(player1Id, player1Name, conn);
     room->setRecordModel(m_recordModel);
 
@@ -86,7 +86,7 @@ string GameRoomManager::createRoom(int player1Id, const string &player1Name,
         }
     });
 
-    m_rooms[roomId] = move(room);
+    m_rooms[roomId] = room;
     m_playerRoomMap[player1Id] = roomId;
 
     LOG_INFO << "Room created: " << roomId << " by player " << player1Id
@@ -110,7 +110,7 @@ json GameRoomManager::joinRoom(const string &roomId, int player2Id,
                                       ErrorCode::GAME_ROOM_NOT_FOUND);
     }
 
-    GameRoom *room = it->second.get();
+    auto room = it->second;
     if (room->state() != GameRoom::State::Waiting)
     {
         LOG_WARN << "joinRoom failed: room not available - " << roomId;
@@ -198,7 +198,7 @@ json GameRoomManager::leaveRoom(int userId)
                                       ErrorCode::GAME_ROOM_NOT_FOUND);
     }
 
-    GameRoom *room = rit->second.get();
+    auto room = rit->second;
     GameRoom::State prevState = room->state();
 
     // 如果对局进行中，通过 endGame() 正常结束
@@ -264,19 +264,19 @@ json GameRoomManager::getRoomList() const
 // Queries
 // ============================================================================
 
-GameRoom *GameRoomManager::getRoom(const string &roomId)
+shared_ptr<GameRoom> GameRoomManager::getRoom(const string &roomId)
 {
     lock_guard<mutex> lock(m_mutex);
 
     auto it = m_rooms.find(roomId);
     if (it != m_rooms.end())
     {
-        return it->second.get();
+        return it->second;
     }
     return nullptr;
 }
 
-GameRoom *GameRoomManager::getRoomByPlayer(int userId)
+shared_ptr<GameRoom> GameRoomManager::getRoomByPlayer(int userId)
 {
     lock_guard<mutex> lock(m_mutex);
 
@@ -289,7 +289,7 @@ GameRoom *GameRoomManager::getRoomByPlayer(int userId)
     auto rit = m_rooms.find(pit->second);
     if (rit != m_rooms.end())
     {
-        return rit->second.get();
+        return rit->second;
     }
     return nullptr;
 }

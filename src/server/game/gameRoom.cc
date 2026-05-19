@@ -398,6 +398,11 @@ void GameRoom::startGame()
 
 void GameRoom::endGame(const std::string &reason, int disconnectedUserId)
 {
+    if (m_cleanupScheduled)
+    {
+        return; // 防止重复结束（如 checkAppleTimeout 与 leaveRoom 并发触发）
+    }
+    m_cleanupScheduled = true;
     m_state = State::Finished;
 
     // 取消所有定时器

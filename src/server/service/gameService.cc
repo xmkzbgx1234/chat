@@ -143,7 +143,7 @@ void GameService::handleReady(const TcpConnectionPtr &conn, json &js, Timestamp 
         return;
     }
 
-    GameRoom *room = m_roomManager.getRoom(roomId);
+    std::shared_ptr<GameRoom> room = m_roomManager.getRoom(roomId);
     if (!room)
     {
         conn->send(encodeMessage(ResponseBuilder::error(GAME_READY, ErrorCode::GAME_ROOM_NOT_FOUND, "房间不存在").dump()));
@@ -164,6 +164,7 @@ void GameService::handleKeyPress(const TcpConnectionPtr &conn, json &js, Timesta
     std::string roomId = js.value("roomId", "");
     std::string letter = js.value("letter", "");
     int64_t timestamp = js.value("timestamp", 0);
+    int requestedAppleId = js.value("appleId", -1);
 
     if (userId == -1 || roomId.empty() || letter.empty())
     {
@@ -171,7 +172,7 @@ void GameService::handleKeyPress(const TcpConnectionPtr &conn, json &js, Timesta
         return;
     }
 
-    GameRoom *room = m_roomManager.getRoom(roomId);
+    std::shared_ptr<GameRoom> room = m_roomManager.getRoom(roomId);
     if (!room)
     {
         conn->send(encodeMessage(ResponseBuilder::error(GAME_KEY_PRESS, ErrorCode::GAME_ROOM_NOT_FOUND, "房间不存在").dump()));
@@ -179,7 +180,7 @@ void GameService::handleKeyPress(const TcpConnectionPtr &conn, json &js, Timesta
     }
 
     // handleKeyPress 内部已经发送了 HIT_RESULT 和 SCORE_UPDATE
-    room->handleKeyPress(userId, letter[0], timestamp);
+    room->handleKeyPress(userId, letter[0], timestamp, requestedAppleId);
 }
 
 int GameService::getUserIdFromConn(const TcpConnectionPtr &conn)

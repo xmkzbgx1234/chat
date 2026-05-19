@@ -38,8 +38,8 @@ public:
     nlohmann::json getRoomList() const;
 
     // 查询
-    GameRoom *getRoom(const std::string &roomId);
-    GameRoom *getRoomByPlayer(int userId);
+    std::shared_ptr<GameRoom> getRoom(const std::string &roomId);
+    std::shared_ptr<GameRoom> getRoomByPlayer(int userId);
     bool isInRoom(int userId) const;
 
     // 断线处理
@@ -53,7 +53,7 @@ private:
     std::string generateRoomId();
 
     mutable std::mutex m_mutex;
-    std::unordered_map<std::string, std::unique_ptr<GameRoom>> m_rooms;
+    std::unordered_map<std::string, std::shared_ptr<GameRoom>> m_rooms;
     std::unordered_map<int, std::string> m_playerRoomMap; // userId -> roomId
     int m_roomCounter = 0;
     GameRecordModel* m_recordModel = nullptr;

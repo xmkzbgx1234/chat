@@ -156,6 +156,9 @@ private:
 
     // 对局结束回调（由 GameRoomManager 设置）
     GameEndedCallback m_onGameEnded;
+
+    // 防止 endGame 重复调度清理
+    bool m_cleanupScheduled = false;
 };
 
 #endif // GAME_ROOM_HPP
