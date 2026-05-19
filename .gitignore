@@ -2,7 +2,6 @@ build/
 bin/
 .vs/
 out/
-logs/
 
 CMakeFiles/
 CMakeCache.txt
@@ -21,9 +20,3 @@ Makefile
 *.ilk
 *.user
 *.suo
-
-# AI agent artifacts
-.arts/
-.cache/
-.vscode/
-设计/
