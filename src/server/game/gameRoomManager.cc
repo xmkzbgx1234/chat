@@ -58,8 +58,9 @@ string GameRoomManager::createRoom(int player1Id, const string &player1Name,
     room->addPlayer(player1Id, player1Name, conn);
     room->setRecordModel(m_recordModel);
 
-    // 对局结束时自动释放双方玩家（不移除房间，避免 getRoom 裸指针竞态）
-    // 使用 queueInLoop 延迟执行，确保在当前事件循环迭代结束后安全运行
+    // 对局结束时释放双方玩家并清理房间
+    // queueInLoop 保证在当前事件循环所有 IO/Timer 回调执行完毕后才触发，
+    // 因此任何同一迭代内的 getRoom() 调用者仍能看到有效房间，不存在竞态
     room->setOnGameEnded([this, rid = roomId]
     {
         lock_guard<mutex> lock(m_mutex);
@@ -75,6 +76,13 @@ string GameRoomManager::createRoom(int player1Id, const string &player1Name,
             {
                 ++it;
             }
+        }
+
+        auto rit = m_rooms.find(rid);
+        if (rit != m_rooms.end())
+        {
+            LOG_INFO << "GameRoom " << rid << ": destroyed after game end";
+            m_rooms.erase(rit);
         }
     });
 
@@ -103,6 +111,12 @@ json GameRoomManager::joinRoom(const string &roomId, int player2Id,
     }
 
     GameRoom *room = it->second.get();
+    if (room->state() != GameRoom::State::Waiting)
+    {
+        LOG_WARN << "joinRoom failed: room not available - " << roomId;
+        return ResponseBuilder::error(GAME_JOIN_ROOM,
+                                      ErrorCode::GAME_ROOM_FULL);
+    }
     if (room->isFull())
     {
         LOG_WARN << "joinRoom failed: room full - " << roomId;
