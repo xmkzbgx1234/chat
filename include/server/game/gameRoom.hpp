@@ -72,7 +72,7 @@ public:
     // 玩家操作
     bool addPlayer(int userId, const std::string &username, const muduo::net::TcpConnectionPtr &conn);
     void removePlayer(int userId);
-    void playerReady(int userId);
+    bool playerReady(int userId);
 
     // 游戏操作
     nlohmann::json handleKeyPress(int userId, char letter, int64_t timestamp, int requestedAppleId = -1);

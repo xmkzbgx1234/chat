@@ -150,7 +150,11 @@ void GameService::handleReady(const TcpConnectionPtr &conn, json &js, Timestamp 
         return;
     }
 
-    room->playerReady(userId);
+    if (!room->playerReady(userId))
+    {
+        conn->send(encodeMessage(ResponseBuilder::error(GAME_READY, ErrorCode::GAME_NOT_READY, "准备失败：不在房间内或房间状态不允许").dump()));
+        return;
+    }
 
     json response = ResponseBuilder::success(GAME_READY, "准备就绪");
     conn->send(encodeMessage(response.dump()));
@@ -179,8 +183,13 @@ void GameService::handleKeyPress(const TcpConnectionPtr &conn, json &js, Timesta
         return;
     }
 
-    // handleKeyPress 内部已经发送了 HIT_RESULT 和 SCORE_UPDATE
-    room->handleKeyPress(userId, letter[0], timestamp, requestedAppleId);
+    // handleKeyPress 返回 hitResult(成功) 或 error(失败)
+    // 成功时已在内部发送了 HIT_RESULT 和 SCORE_UPDATE
+    json result = room->handleKeyPress(userId, letter[0], timestamp, requestedAppleId);
+    if (result.contains("errno") && result["errno"].get<int>() != 0)
+    {
+        conn->send(encodeMessage(result.dump()));
+    }
 }
 
 int GameService::getUserIdFromConn(const TcpConnectionPtr &conn)

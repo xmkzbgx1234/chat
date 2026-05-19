@@ -124,8 +124,23 @@ void GameRoom::removePlayer(int userId)
     }
 }
 
-void GameRoom::playerReady(int userId)
+bool GameRoom::playerReady(int userId)
 {
+    // 验证用户是房间成员
+    if (m_player1.userId != userId && m_player2.userId != userId)
+    {
+        LOG_INFO << "GameRoom " << m_roomId << ": playerReady ignored, user " << userId << " not in room";
+        return false;
+    }
+
+    // 仅在 Waiting 状态下接受准备
+    if (m_state != State::Waiting)
+    {
+        LOG_INFO << "GameRoom " << m_roomId << ": playerReady ignored, room not in Waiting state (current: " 
+                 << static_cast<int>(m_state) << ")";
+        return false;
+    }
+
     if (m_player1.userId == userId)
     {
         m_player1.ready = true;
@@ -156,6 +171,7 @@ void GameRoom::playerReady(int userId)
         stateMsg["player2Ready"] = m_player2.ready;
         broadcastToPlayers(stateMsg);
     }
+    return true;
 }
 
 nlohmann::json GameRoom::handleKeyPress(int userId, char letter, int64_t timestamp, int requestedAppleId)
