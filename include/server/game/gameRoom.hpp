@@ -92,11 +92,13 @@ public:
     void setRecordModel(GameRecordModel* model) { m_recordModel = model; }
     GameRecordModel* recordModel() const { return m_recordModel; }
 
+    // 游戏结束（可由 GameRoomManager 在玩家离开时调用）
+    void endGame(const std::string &reason, int disconnectedUserId = -1);
+
 private:
     // 状态转换
     void startCountdown();
     void startGame();
-    void endGame(const std::string &reason);
 
     // 游戏逻辑
     void spawnApple();

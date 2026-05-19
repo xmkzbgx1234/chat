@@ -396,7 +396,7 @@ void GameRoom::startGame()
     });
 }
 
-void GameRoom::endGame(const std::string &reason)
+void GameRoom::endGame(const std::string &reason, int disconnectedUserId)
 {
     m_state = State::Finished;
 
@@ -407,10 +407,15 @@ void GameRoom::endGame(const std::string &reason)
     m_loop->cancel(m_opponentStateTimerId);
     m_loop->cancel(m_difficultyTimerId);
 
+    // 计算实际已进行时长（用于准确的 WPM 和 duration）
+    int64_t now = std::chrono::duration_cast<std::chrono::milliseconds>(
+                      std::chrono::system_clock::now().time_since_epoch())
+                      .count();
+    int actualDuration = std::max(1, static_cast<int>((now - m_gameStartTime) / 1000));
+
     // 计算WPM (假设平均单词长度5)
-    int elapsed = m_gameDuration; // 简化：使用配置的游戏时长
-    m_player1.wpm = elapsed > 0 ? (double)m_player1.successCount / 5.0 / (double)elapsed * 60.0 : 0.0;
-    m_player2.wpm = elapsed > 0 ? (double)m_player2.successCount / 5.0 / (double)elapsed * 60.0 : 0.0;
+    m_player1.wpm = actualDuration > 0 ? (double)m_player1.successCount / 5.0 / (double)actualDuration * 60.0 : 0.0;
+    m_player2.wpm = actualDuration > 0 ? (double)m_player2.successCount / 5.0 / (double)actualDuration * 60.0 : 0.0;
 
     // 确定胜者
     int winnerId = -1;
@@ -420,7 +425,14 @@ void GameRoom::endGame(const std::string &reason)
     }
     else if (reason == "opponent_disconnected")
     {
-        winnerId = (m_player1.userId == -1) ? m_player2.userId : m_player1.userId;
+        if (disconnectedUserId >= 0)
+        {
+            winnerId = (m_player1.userId == disconnectedUserId) ? m_player2.userId : m_player1.userId;
+        }
+        else
+        {
+            winnerId = (m_player1.userId == -1) ? m_player2.userId : m_player1.userId;
+        }
     }
     else
     {
@@ -429,7 +441,7 @@ void GameRoom::endGame(const std::string &reason)
     }
 
     LOG_INFO << "GameRoom " << m_roomId << ": game ended, reason=" << reason
-             << ", winner=" << winnerId;
+             << ", winner=" << winnerId << ", actualDuration=" << actualDuration << "s";
 
     // 广播游戏结束（包含玩家 ID 用于客户端区分本地/对手）
     json overMsg;
@@ -447,7 +459,7 @@ void GameRoom::endGame(const std::string &reason)
     overMsg["player2Wpm"] = m_player2.wpm;
     overMsg["player1MaxCombo"] = m_player1.maxCombo;
     overMsg["player2MaxCombo"] = m_player2.maxCombo;
-    overMsg["duration"] = m_gameDuration;
+    overMsg["duration"] = actualDuration;
     broadcastToPlayers(overMsg);
 
     // 持久化对战记录
@@ -459,7 +471,7 @@ void GameRoom::endGame(const std::string &reason)
         record.player1Score = m_player1.score;
         record.player2Score = m_player2.score;
         record.winnerId = winnerId;
-        record.duration = m_gameDuration;
+        record.duration = actualDuration;
         record.player1Accuracy = m_player1.accuracy;
         record.player2Accuracy = m_player2.accuracy;
         record.player1Wpm = m_player1.wpm;
