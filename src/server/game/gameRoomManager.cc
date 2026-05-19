@@ -58,8 +58,8 @@ string GameRoomManager::createRoom(int player1Id, const string &player1Name,
     room->addPlayer(player1Id, player1Name, conn);
     room->setRecordModel(m_recordModel);
 
-    // 对局结束时自动释放双方玩家并销毁房间
-    // 使用 queueInLoop 延迟执行，避免在 endGame 调用链中发生 use-after-free
+    // 对局结束时自动释放双方玩家（不移除房间，避免 getRoom 裸指针竞态）
+    // 使用 queueInLoop 延迟执行，确保在当前事件循环迭代结束后安全运行
     room->setOnGameEnded([this, rid = roomId]
     {
         lock_guard<mutex> lock(m_mutex);
@@ -68,19 +68,13 @@ string GameRoomManager::createRoom(int player1Id, const string &player1Name,
         {
             if (it->second == rid)
             {
+                LOG_INFO << "GameRoom " << rid << ": released player " << it->first << " after game end";
                 it = m_playerRoomMap.erase(it);
             }
             else
             {
                 ++it;
             }
-        }
-
-        auto rit = m_rooms.find(rid);
-        if (rit != m_rooms.end())
-        {
-            LOG_INFO << "GameRoom " << rid << ": released and destroyed after game end";
-            m_rooms.erase(rit);
         }
     });
 

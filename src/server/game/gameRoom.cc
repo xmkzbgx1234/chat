@@ -436,8 +436,19 @@ void GameRoom::endGame(const std::string &reason, int disconnectedUserId)
     }
     else
     {
-        // 时间到，比分数
-        winnerId = (m_player1.score > m_player2.score) ? m_player1.userId : m_player2.userId;
+        // 时间到，比分数（平局则无人获胜）
+        if (m_player1.score > m_player2.score)
+        {
+            winnerId = m_player1.userId;
+        }
+        else if (m_player2.score > m_player1.score)
+        {
+            winnerId = m_player2.userId;
+        }
+        else
+        {
+            winnerId = -1;
+        }
     }
 
     LOG_INFO << "GameRoom " << m_roomId << ": game ended, reason=" << reason
