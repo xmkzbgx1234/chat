@@ -6,6 +6,7 @@
 #include <map>
 #include <mutex>
 #include <memory>
+#include <functional>
 #include <muduo/net/TcpConnection.h>
 #include <muduo/net/EventLoop.h>
 #include <nlohmann/json.hpp>
@@ -95,6 +96,10 @@ public:
     // 游戏结束（可由 GameRoomManager 在玩家离开时调用）
     void endGame(const std::string &reason, int disconnectedUserId = -1);
 
+    // 对局结束后自动清理（由 GameRoomManager 设置回调，在 queueInLoop 中安全执行）
+    using GameEndedCallback = std::function<void()>;
+    void setOnGameEnded(GameEndedCallback cb) { m_onGameEnded = std::move(cb); }
+
 private:
     // 状态转换
     void startCountdown();
@@ -148,6 +153,9 @@ private:
 
     // 持久化
     GameRecordModel* m_recordModel = nullptr;
+
+    // 对局结束回调（由 GameRoomManager 设置）
+    GameEndedCallback m_onGameEnded;
 };
 
 #endif // GAME_ROOM_HPP

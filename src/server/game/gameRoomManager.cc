@@ -58,6 +58,32 @@ string GameRoomManager::createRoom(int player1Id, const string &player1Name,
     room->addPlayer(player1Id, player1Name, conn);
     room->setRecordModel(m_recordModel);
 
+    // 对局结束时自动释放双方玩家并销毁房间
+    // 使用 queueInLoop 延迟执行，避免在 endGame 调用链中发生 use-after-free
+    room->setOnGameEnded([this, rid = roomId]
+    {
+        lock_guard<mutex> lock(m_mutex);
+
+        for (auto it = m_playerRoomMap.begin(); it != m_playerRoomMap.end(); )
+        {
+            if (it->second == rid)
+            {
+                it = m_playerRoomMap.erase(it);
+            }
+            else
+            {
+                ++it;
+            }
+        }
+
+        auto rit = m_rooms.find(rid);
+        if (rit != m_rooms.end())
+        {
+            LOG_INFO << "GameRoom " << rid << ": released and destroyed after game end";
+            m_rooms.erase(rit);
+        }
+    });
+
     m_rooms[roomId] = move(room);
     m_playerRoomMap[player1Id] = roomId;
 
@@ -179,21 +205,7 @@ json GameRoomManager::leaveRoom(int userId)
 
     LOG_INFO << "Player " << userId << " left room " << roomId;
 
-    // 对局因断线结束：获胜方也已收到 GAME_OVER，需要将其也移出房间映射，
-    // 否则 isInRoom() 仍返回 true，导致无法创建/加入新房间
-    if (prevState == GameRoom::State::Playing)
-    {
-        int remainingId = -1;
-        if (room->getPlayer1()->userId != -1) remainingId = room->getPlayer1()->userId;
-        else if (room->getPlayer2()->userId != -1) remainingId = room->getPlayer2()->userId;
-
-        if (remainingId != -1)
-        {
-            room->removePlayer(remainingId);
-            m_playerRoomMap.erase(remainingId);
-            LOG_INFO << "GameRoom " << roomId << ": released winner " << remainingId << " after opponent disconnect";
-        }
-    }
+    // 若房间双方均已离开则销毁（断线时获胜方会由 endGame 的回调后续清理）
 
     // Destroy room if both player slots are now empty
     if (room->getPlayer1()->userId == -1 && room->getPlayer2()->userId == -1)

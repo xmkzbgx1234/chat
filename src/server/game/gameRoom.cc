@@ -488,6 +488,14 @@ void GameRoom::endGame(const std::string &reason, int disconnectedUserId)
             LOG_ERROR << "GameRoom " << m_roomId << ": failed to persist game record";
         }
     }
+
+    // 对局结束，延迟释放房间中的玩家并销毁房间
+    // 使用 queueInLoop 确保所有当前事件循环回调执行完毕后再清理，
+    // 避免 onSpawnTimer 等调用者中出现 use-after-free
+    if (m_onGameEnded)
+    {
+        m_loop->queueInLoop(m_onGameEnded);
+    }
 }
 
 void GameRoom::spawnApple()
