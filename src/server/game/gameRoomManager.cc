@@ -179,6 +179,22 @@ json GameRoomManager::leaveRoom(int userId)
 
     LOG_INFO << "Player " << userId << " left room " << roomId;
 
+    // 对局因断线结束：获胜方也已收到 GAME_OVER，需要将其也移出房间映射，
+    // 否则 isInRoom() 仍返回 true，导致无法创建/加入新房间
+    if (prevState == GameRoom::State::Playing)
+    {
+        int remainingId = -1;
+        if (room->getPlayer1()->userId != -1) remainingId = room->getPlayer1()->userId;
+        else if (room->getPlayer2()->userId != -1) remainingId = room->getPlayer2()->userId;
+
+        if (remainingId != -1)
+        {
+            room->removePlayer(remainingId);
+            m_playerRoomMap.erase(remainingId);
+            LOG_INFO << "GameRoom " << roomId << ": released winner " << remainingId << " after opponent disconnect";
+        }
+    }
+
     // Destroy room if both player slots are now empty
     if (room->getPlayer1()->userId == -1 && room->getPlayer2()->userId == -1)
     {
