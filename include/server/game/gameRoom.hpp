@@ -10,6 +10,7 @@
 #include <muduo/net/EventLoop.h>
 #include <nlohmann/json.hpp>
 #include "server/game/appleSequencer.hpp"
+#include "server/model/gameRecordModel.hpp"
 
 /**
  * @file gameRoom.hpp
@@ -49,6 +50,7 @@ public:
 
     struct ActiveApple
     {
+        int appleId = 0;        // 唯一苹果 ID（用于客户端精确匹配同步）
         char letter;
         float x;            // 归一化 X 位置 (0.0~1.0)
         int64_t spawnTime;  // 生成时间戳 (ms)
@@ -72,7 +74,7 @@ public:
     void playerReady(int userId);
 
     // 游戏操作
-    nlohmann::json handleKeyPress(int userId, char letter, int64_t timestamp);
+    nlohmann::json handleKeyPress(int userId, char letter, int64_t timestamp, int requestedAppleId = -1);
 
     // 获取玩家信息
     const PlayerState *getPlayer(int userId) const;
@@ -85,6 +87,10 @@ public:
 
     // 获取游戏配置
     int gameDuration() const { return m_gameDuration; }
+
+    // 持久化支持
+    void setRecordModel(GameRecordModel* model) { m_recordModel = model; }
+    GameRecordModel* recordModel() const { return m_recordModel; }
 
 private:
     // 状态转换
@@ -119,6 +125,7 @@ private:
     // 游戏状态
     AppleSequencer m_sequencer;
     std::vector<ActiveApple> m_activeApples;
+    int m_nextAppleId = 1;     // 苹果 ID 自增计数器
     int64_t m_gameStartTime = 0;  // 游戏开始时间 (ms since epoch)
     int m_gameDuration = 60;      // 游戏时长 (秒)
     int m_countdownRemaining = 3; // 倒计时剩余秒数
@@ -136,6 +143,9 @@ private:
     muduo::net::TimerId m_countdownTimerId;
     muduo::net::TimerId m_opponentStateTimerId;
     muduo::net::TimerId m_difficultyTimerId;
+
+    // 持久化
+    GameRecordModel* m_recordModel = nullptr;
 };
 
 #endif // GAME_ROOM_HPP

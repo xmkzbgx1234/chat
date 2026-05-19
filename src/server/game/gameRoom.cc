@@ -9,6 +9,7 @@
 #include <chrono>
 #include <random>
 #include <cmath>
+#include <algorithm>
 
 using namespace muduo;
 using namespace muduo::net;
@@ -141,9 +142,23 @@ void GameRoom::playerReady(int userId)
     {
         startCountdown();
     }
+    else if (m_state == State::Waiting)
+    {
+        json stateMsg;
+        stateMsg["msgid"] = GAME_ROOM_STATE;
+        stateMsg["roomId"] = m_roomId;
+        stateMsg["state"] = "Waiting";
+        stateMsg["player1Name"] = m_player1.username;
+        stateMsg["player1Id"] = m_player1.userId;
+        stateMsg["player1Ready"] = m_player1.ready;
+        stateMsg["player2Name"] = m_player2.username;
+        stateMsg["player2Id"] = m_player2.userId;
+        stateMsg["player2Ready"] = m_player2.ready;
+        broadcastToPlayers(stateMsg);
+    }
 }
 
-nlohmann::json GameRoom::handleKeyPress(int userId, char letter, int64_t timestamp)
+nlohmann::json GameRoom::handleKeyPress(int userId, char letter, int64_t timestamp, int requestedAppleId)
 {
     if (m_state != State::Playing)
     {
@@ -169,12 +184,24 @@ nlohmann::json GameRoom::handleKeyPress(int userId, char letter, int64_t timesta
 
     // 查找匹配的活跃苹果
     bool hit = false;
+    int hitAppleId = -1;
     for (auto &apple : m_activeApples)
     {
-        if (apple.alive && apple.letter == letter)
+        bool appleMatches = false;
+        if (requestedAppleId >= 0)
+        {
+            appleMatches = apple.appleId == requestedAppleId && apple.letter == letter;
+        }
+        else
+        {
+            appleMatches = apple.letter == letter;
+        }
+
+        if (apple.alive && appleMatches)
         {
             apple.alive = false;
             hit = true;
+            hitAppleId = apple.appleId;
             player->score += 10;
             player->successCount++;
             player->currentCombo++;
@@ -196,33 +223,46 @@ nlohmann::json GameRoom::handleKeyPress(int userId, char letter, int64_t timesta
     int total = player->successCount + player->failureCount;
     player->accuracy = total > 0 ? (double)player->successCount / total * 100.0 : 0.0;
 
-    // 发送命中结果给玩家
+    // 发送命中结果给玩家（包含 appleId 用于客户端精确匹配）
     json hitResult;
     hitResult["msgid"] = GAME_HIT_RESULT;
     hitResult["hit"] = hit;
     hitResult["letter"] = std::string(1, letter);
     hitResult["score"] = player->score;
     hitResult["lives"] = player->lives;
+    if (hit)
+    {
+        hitResult["appleId"] = hitAppleId;
+    }
     sendToPlayer(userId, hitResult);
 
-    // 如果命中，通知对手
+    // 如果命中，通知对手（包含 appleId 让对手精确移除对应苹果）
     if (hit && opponent && opponent->userId != -1)
     {
         json opponentHit;
         opponentHit["msgid"] = GAME_OPPONENT_HIT;
         opponentHit["letter"] = std::string(1, letter);
+        opponentHit["appleId"] = hitAppleId;
         opponentHit["opponentScore"] = player->score;
         sendToPlayer(opponent->userId, opponentHit);
     }
 
-    // 广播分数更新
+    // 广播分数更新（包含玩家 ID 让客户端能区分本地/对手）
     json scoreUpdate;
     scoreUpdate["msgid"] = GAME_SCORE_UPDATE;
     scoreUpdate["roomId"] = m_roomId;
+    scoreUpdate["player1Id"] = m_player1.userId;
     scoreUpdate["player1Score"] = m_player1.score;
-    scoreUpdate["player2Score"] = m_player2.score;
     scoreUpdate["player1Lives"] = m_player1.lives;
+    scoreUpdate["player1Hits"] = m_player1.successCount;
+    scoreUpdate["player1Misses"] = m_player1.failureCount;
+    scoreUpdate["player1Accuracy"] = m_player1.accuracy;
+    scoreUpdate["player2Id"] = m_player2.userId;
+    scoreUpdate["player2Score"] = m_player2.score;
     scoreUpdate["player2Lives"] = m_player2.lives;
+    scoreUpdate["player2Hits"] = m_player2.successCount;
+    scoreUpdate["player2Misses"] = m_player2.failureCount;
+    scoreUpdate["player2Accuracy"] = m_player2.accuracy;
     broadcastToPlayers(scoreUpdate);
 
     return hitResult;
@@ -314,6 +354,7 @@ void GameRoom::startGame()
     m_player2.currentCombo = 0;
 
     m_activeApples.clear();
+    m_nextAppleId = 1;
     m_currentDifficulty = 1;
 
     LOG_INFO << "GameRoom " << m_roomId << ": game started, seed=" << seed;
@@ -329,9 +370,11 @@ void GameRoom::startGame()
     startMsg["spawnInterval"] = m_initialSpawnInterval;
     startMsg["duration"] = m_gameDuration;
     startMsg["opponentName"] = m_player2.username;
+    startMsg["opponentId"] = m_player2.userId;
     sendToPlayer(m_player1.userId, startMsg);
 
     startMsg["opponentName"] = m_player1.username;
+    startMsg["opponentId"] = m_player1.userId;
     sendToPlayer(m_player2.userId, startMsg);
 
     // 启动定时器
@@ -388,13 +431,15 @@ void GameRoom::endGame(const std::string &reason)
     LOG_INFO << "GameRoom " << m_roomId << ": game ended, reason=" << reason
              << ", winner=" << winnerId;
 
-    // 广播游戏结束
+    // 广播游戏结束（包含玩家 ID 用于客户端区分本地/对手）
     json overMsg;
     overMsg["msgid"] = GAME_OVER;
     overMsg["roomId"] = m_roomId;
     overMsg["reason"] = reason;
     overMsg["winner"] = winnerId;
+    overMsg["player1Id"] = m_player1.userId;
     overMsg["player1Score"] = m_player1.score;
+    overMsg["player2Id"] = m_player2.userId;
     overMsg["player2Score"] = m_player2.score;
     overMsg["player1Accuracy"] = m_player1.accuracy;
     overMsg["player2Accuracy"] = m_player2.accuracy;
@@ -405,7 +450,32 @@ void GameRoom::endGame(const std::string &reason)
     overMsg["duration"] = m_gameDuration;
     broadcastToPlayers(overMsg);
 
-    // 持久化对战记录 (由 GameService 调用 GameRecordModel)
+    // 持久化对战记录
+    if (m_recordModel)
+    {
+        GameRecord record;
+        record.player1Id = m_player1.userId;
+        record.player2Id = m_player2.userId;
+        record.player1Score = m_player1.score;
+        record.player2Score = m_player2.score;
+        record.winnerId = winnerId;
+        record.duration = m_gameDuration;
+        record.player1Accuracy = m_player1.accuracy;
+        record.player2Accuracy = m_player2.accuracy;
+        record.player1Wpm = m_player1.wpm;
+        record.player2Wpm = m_player2.wpm;
+        record.player1MaxCombo = m_player1.maxCombo;
+        record.player2MaxCombo = m_player2.maxCombo;
+
+        if (m_recordModel->insert(record))
+        {
+            LOG_INFO << "GameRoom " << m_roomId << ": game record persisted, winner=" << winnerId;
+        }
+        else
+        {
+            LOG_ERROR << "GameRoom " << m_roomId << ": failed to persist game record";
+        }
+    }
 }
 
 void GameRoom::spawnApple()
@@ -420,8 +490,23 @@ void GameRoom::spawnApple()
                       .count();
     int64_t elapsed = now - m_gameStartTime;
 
-    AppleSpawnInfo info = m_sequencer.nextApple(elapsed);
+    // 收集当前活跃苹果的 X 位置用于重叠避免
+    std::vector<float> activeXs;
+    for (const auto &apple : m_activeApples)
+    {
+        if (apple.alive)
+        {
+            activeXs.push_back(apple.x);
+        }
+    }
+    if (static_cast<int>(activeXs.size()) >= m_sequencer.maxActiveApples())
+    {
+        return;
+    }
+
+    AppleSpawnInfo info = m_sequencer.nextApple(elapsed, activeXs);
     ActiveApple apple;
+    apple.appleId = m_nextAppleId++;
     apple.letter = info.letter;
     apple.x = info.x;
     apple.spawnTime = info.spawnTime;
@@ -429,10 +514,11 @@ void GameRoom::spawnApple()
     apple.alive = true;
     m_activeApples.push_back(apple);
 
-    // 广播苹果生成
+    // 广播苹果生成（包含唯一 appleId 用于客户端精确同步）
     json spawnMsg;
     spawnMsg["msgid"] = GAME_APPLE_SPAWN;
     spawnMsg["roomId"] = m_roomId;
+    spawnMsg["appleId"] = apple.appleId;
     spawnMsg["letter"] = std::string(1, apple.letter);
     spawnMsg["x"] = apple.x;
     spawnMsg["spawnTime"] = apple.spawnTime;
@@ -457,20 +543,35 @@ void GameRoom::checkAppleTimeout()
 
     for (auto &apple : m_activeApples)
     {
-        if (apple.alive && (now - apple.spawnTime) > fallDuration)
+        if (apple.alive && ((now - m_gameStartTime) - apple.spawnTime) > fallDuration)
         {
             apple.alive = false;
-            // 苹果掉底，双方都扣生命（各自独立）
-            // 实际上应该只扣对应玩家的生命，但简化处理
+            // 苹果掉底，双方都扣一条命
+            if (m_player1.lives > 0)
+            {
+                m_player1.lives--;
+            }
+            if (m_player2.lives > 0)
+            {
+                m_player2.lives--;
+            }
         }
     }
 
-    // 清理不活跃的苹果
+    // 清理不活跃的苹果（保留最近 10 个用于状态同步）
     m_activeApples.erase(
         std::remove_if(m_activeApples.begin(), m_activeApples.end(),
                        [](const ActiveApple &a)
-                       { return !a.alive; }),
+                       {
+                           return !a.alive;
+                       }),
         m_activeApples.end());
+
+    // 检查是否有玩家生命值为 0
+    if (m_player1.lives <= 0 || m_player2.lives <= 0)
+    {
+        endGame("lives_zero");
+    }
 }
 
 void GameRoom::updateDifficulty(int elapsedSeconds)
@@ -570,24 +671,29 @@ void GameRoom::broadcastOpponentState()
         json stateMsg;
         stateMsg["msgid"] = GAME_OPPONENT_STATE;
         stateMsg["roomId"] = m_roomId;
+        stateMsg["opponentId"] = m_player2.userId;
         stateMsg["score"] = m_player2.score;
         stateMsg["lives"] = m_player2.lives;
+        stateMsg["hits"] = m_player2.successCount;
+        stateMsg["misses"] = m_player2.failureCount;
+        stateMsg["accuracy"] = m_player2.accuracy;
+        stateMsg["maxCombo"] = m_player2.maxCombo;
 
         json apples = json::array();
         for (const auto &apple : m_activeApples)
         {
-            if (apple.alive)
-            {
-                // 计算苹果当前Y位置 (归一化 0.0~1.0)
-                int64_t elapsed = now - apple.spawnTime;
-                double y = std::min(1.0, (double)elapsed / 10000.0); // 10秒到底
-                json appleJson;
-                appleJson["letter"] = std::string(1, apple.letter);
-                appleJson["x"] = apple.x;
-                appleJson["y"] = y;
-                appleJson["state"] = "falling";
-                apples.push_back(appleJson);
-            }
+            // 计算苹果当前Y位置 (归一化 0.0~1.0)
+            int64_t elapsed = (now - m_gameStartTime) - apple.spawnTime;
+            double y = std::min(1.0, (double)elapsed / 10000.0); // 10秒到底
+            json appleJson;
+            appleJson["appleId"] = apple.appleId;
+            appleJson["letter"] = std::string(1, apple.letter);
+            appleJson["x"] = apple.x;
+            appleJson["y"] = y;
+            appleJson["spawnTime"] = apple.spawnTime;
+            appleJson["fallSpeed"] = apple.fallSpeed;
+            appleJson["state"] = apple.alive ? "falling" : "hit";
+            apples.push_back(appleJson);
         }
         stateMsg["apples"] = apples;
         sendToPlayer(m_player1.userId, stateMsg);
@@ -599,23 +705,28 @@ void GameRoom::broadcastOpponentState()
         json stateMsg;
         stateMsg["msgid"] = GAME_OPPONENT_STATE;
         stateMsg["roomId"] = m_roomId;
+        stateMsg["opponentId"] = m_player1.userId;
         stateMsg["score"] = m_player1.score;
         stateMsg["lives"] = m_player1.lives;
+        stateMsg["hits"] = m_player1.successCount;
+        stateMsg["misses"] = m_player1.failureCount;
+        stateMsg["accuracy"] = m_player1.accuracy;
+        stateMsg["maxCombo"] = m_player1.maxCombo;
 
         json apples = json::array();
         for (const auto &apple : m_activeApples)
         {
-            if (apple.alive)
-            {
-                int64_t elapsed = now - apple.spawnTime;
-                double y = std::min(1.0, (double)elapsed / 10000.0);
-                json appleJson;
-                appleJson["letter"] = std::string(1, apple.letter);
-                appleJson["x"] = apple.x;
-                appleJson["y"] = y;
-                appleJson["state"] = "falling";
-                apples.push_back(appleJson);
-            }
+            int64_t elapsed = (now - m_gameStartTime) - apple.spawnTime;
+            double y = std::min(1.0, (double)elapsed / 10000.0);
+            json appleJson;
+            appleJson["appleId"] = apple.appleId;
+            appleJson["letter"] = std::string(1, apple.letter);
+            appleJson["x"] = apple.x;
+            appleJson["y"] = y;
+            appleJson["spawnTime"] = apple.spawnTime;
+            appleJson["fallSpeed"] = apple.fallSpeed;
+            appleJson["state"] = apple.alive ? "falling" : "hit";
+            apples.push_back(appleJson);
         }
         stateMsg["apples"] = apples;
         sendToPlayer(m_player2.userId, stateMsg);
@@ -624,8 +735,8 @@ void GameRoom::broadcastOpponentState()
 
 void GameRoom::onSpawnTimer()
 {
-    spawnApple();
     checkAppleTimeout();
+    spawnApple();
 }
 
 void GameRoom::onGameTimer()
@@ -670,9 +781,10 @@ void GameRoom::onDifficultyCheckTimer()
         return;
     }
 
-    int64_t now = std::chrono::duration_cast<std::chrono::seconds>(
+    int64_t now = std::chrono::duration_cast<std::chrono::milliseconds>(
                       std::chrono::system_clock::now().time_since_epoch())
                       .count();
-    int elapsed = static_cast<int>(now - m_gameStartTime / 1000);
+    // m_gameStartTime 是毫秒时间戳，now 也是毫秒时间戳，差值除以 1000 得到秒数
+    int elapsed = static_cast<int>((now - m_gameStartTime) / 1000);
     updateDifficulty(elapsed);
 }

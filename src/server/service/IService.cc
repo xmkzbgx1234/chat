@@ -49,6 +49,8 @@ IService::IService() :
     _gameRecordModel(GameRecordModel()),
     _gameService(_gameRoomManager, _gameRecordModel)
 {
+    // 将持久化模型注入到房间管理器，使每个房间都能在对局结束时保存记录
+    _gameRoomManager.setRecordModel(&_gameRecordModel);
 
     // 1. 注册消息处理函数
     MSGHANDLER(LOGIN_MSG, _authService.handleMessage);

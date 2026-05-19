@@ -9,6 +9,7 @@
 #include <muduo/net/TcpConnection.h>
 #include <nlohmann/json.hpp>
 #include "server/game/gameRoom.hpp"
+#include "server/model/gameRecordModel.hpp"
 
 /**
  * @file gameRoomManager.hpp
@@ -44,6 +45,9 @@ public:
     // 断线处理
     void handleDisconnect(int userId);
 
+    // 持久化支持
+    void setRecordModel(GameRecordModel* model) { m_recordModel = model; }
+
 private:
     GameRoomManager() = default;
     std::string generateRoomId();
@@ -52,6 +56,7 @@ private:
     std::unordered_map<std::string, std::unique_ptr<GameRoom>> m_rooms;
     std::unordered_map<int, std::string> m_playerRoomMap; // userId -> roomId
     int m_roomCounter = 0;
+    GameRecordModel* m_recordModel = nullptr;
 };
 
 #endif // GAME_ROOM_MANAGER_HPP

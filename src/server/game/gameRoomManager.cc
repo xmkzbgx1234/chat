@@ -56,6 +56,7 @@ string GameRoomManager::createRoom(int player1Id, const string &player1Name,
 
     auto room = make_unique<GameRoom>(roomId, rn, loop);
     room->addPlayer(player1Id, player1Name, conn);
+    room->setRecordModel(m_recordModel);
 
     m_rooms[roomId] = move(room);
     m_playerRoomMap[player1Id] = roomId;
@@ -98,6 +99,7 @@ json GameRoomManager::joinRoom(const string &roomId, int player2Id,
     json stateMsg;
     stateMsg["msgid"]       = GAME_ROOM_STATE;
     stateMsg["roomId"]      = roomId;
+    stateMsg["state"]       = "Waiting";
     stateMsg["playerCount"] = 2;
 
     const auto *p1 = room->getPlayer1();
@@ -130,6 +132,7 @@ json GameRoomManager::joinRoom(const string &roomId, int player2Id,
     success["msgid"]       = GAME_JOIN_ROOM;
     success["errno"]       = static_cast<int>(ErrorCode::SUCCESS);
     success["roomId"]      = roomId;
+    success["roomName"]    = room->roomName();
     success["player2Name"] = player2Name;
     if (p1)
     {
@@ -167,10 +170,47 @@ json GameRoomManager::leaveRoom(int userId)
     // Remember opponent before removal
     const auto *opponent = room->getOpponent(userId);
 
+    // 如果对局进行中，在移除玩家前捕获双方数据用于持久化
+    GameRecord disconnectRecord;
+    bool shouldPersist = false;
+    if (prevState == GameRoom::State::Playing)
+    {
+        const auto *leaver = room->getPlayer(userId);
+        if (leaver && opponent)
+        {
+            disconnectRecord.player1Id = room->getPlayer1()->userId;
+            disconnectRecord.player2Id = room->getPlayer2()->userId;
+            disconnectRecord.player1Score = room->getPlayer1()->score;
+            disconnectRecord.player2Score = room->getPlayer2()->score;
+            disconnectRecord.winnerId = opponent->userId;
+            disconnectRecord.duration = room->gameDuration();
+            disconnectRecord.player1Accuracy = room->getPlayer1()->accuracy;
+            disconnectRecord.player2Accuracy = room->getPlayer2()->accuracy;
+            disconnectRecord.player1Wpm = room->getPlayer1()->wpm;
+            disconnectRecord.player2Wpm = room->getPlayer2()->wpm;
+            disconnectRecord.player1MaxCombo = room->getPlayer1()->maxCombo;
+            disconnectRecord.player2MaxCombo = room->getPlayer2()->maxCombo;
+            shouldPersist = true;
+        }
+    }
+
     room->removePlayer(userId);
     m_playerRoomMap.erase(pit);
 
     LOG_INFO << "Player " << userId << " left room " << roomId;
+
+    // Persist interrupted game record
+    if (shouldPersist && m_recordModel)
+    {
+        if (m_recordModel->insert(disconnectRecord))
+        {
+            LOG_INFO << "GameRoom " << roomId << ": disconnected game record persisted, winner=" << disconnectRecord.winnerId;
+        }
+        else
+        {
+            LOG_ERROR << "GameRoom " << roomId << ": failed to persist disconnected game record";
+        }
+    }
 
     // If a game was in progress, the opponent wins
     if (prevState == GameRoom::State::Playing && opponent && opponent->conn)
