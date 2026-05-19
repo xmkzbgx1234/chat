@@ -15,6 +15,9 @@
 #include "friendService.hpp"
 #include "authService.hpp"
 #include "onlineUserManager.hpp"
+#include "gameService.hpp"
+#include "gameRoomManager.hpp"
+#include "gameRecordModel.hpp"
 #include "log.h"
 
 #define MSGHANDLER(msg, handler) _msgHandlerMap[msg] = [this](const TcpConnectionPtr& conn, json& js, Timestamp time) { handler(conn, js, time);}
@@ -41,8 +44,13 @@ IService::IService() :
     _chatService(_userModel, _offLineMsgModel, _groupModel, _chatMessageModel, _redis, _onlineUserManager),
     _groupService(_groupModel),
     _friendService(_userModel, _friendModel),
-    _authService(_userModel, _offLineMsgModel, _friendModel, _groupModel, _chatMessageModel, _redis, _onlineUserManager)
+    _authService(_userModel, _offLineMsgModel, _friendModel, _groupModel, _chatMessageModel, _redis, _onlineUserManager),
+    _gameRoomManager(GameRoomManager::instance()),
+    _gameRecordModel(GameRecordModel()),
+    _gameService(_gameRoomManager, _gameRecordModel)
 {
+    // 将持久化模型注入到房间管理器，使每个房间都能在对局结束时保存记录
+    _gameRoomManager.setRecordModel(&_gameRecordModel);
 
     // 1. 注册消息处理函数
     MSGHANDLER(LOGIN_MSG, _authService.handleMessage);
@@ -53,6 +61,15 @@ IService::IService() :
     MSGHANDLER(CREATE_GROUP_MSG, _groupService.handleMessage);
     MSGHANDLER(ONE_CHAT_MSG, _chatService.handleMessage);
     MSGHANDLER(GROUP_CHAT_MSG, _chatService.handleMessage);
+
+    // 3. 注册游戏消息处理函数
+    MSGHANDLER(GAME_CREATE_ROOM, _gameService.handleMessage);
+    MSGHANDLER(GAME_JOIN_ROOM, _gameService.handleMessage);
+    MSGHANDLER(GAME_LEAVE_ROOM, _gameService.handleMessage);
+    MSGHANDLER(GAME_ROOM_LIST, _gameService.handleMessage);
+    MSGHANDLER(GAME_READY, _gameService.handleMessage);
+    MSGHANDLER(GAME_KEY_PRESS, _gameService.handleMessage);
+    MSGHANDLER(GAME_LEADERBOARD, _gameService.handleMessage);
 
     // 2. 连接Redis
     if (_redis.connect()) {
@@ -71,7 +88,7 @@ MsgHandler IService::getHandler(int msgid)
     return _msgHandlerMap[msgid];
 }
 
-void IService::reset()
+void IService::reset()  
 {
     // 把在线用户的状态设置为离线
     _userModel.resetState();
@@ -94,6 +111,15 @@ void IService::ClientCloseException(const TcpConnectionPtr &conn)
     }
     user.setState("offline");
     _userModel.updateUserInfo(user);
+
+    // 清理用户所在的游戏房间
+    _gameRoomManager.leaveRoom(channel);
+}
+
+void IService::handleUserDisconnect(int userId)
+{
+    _gameRoomManager.leaveRoom(userId);
+    LOG_INFO << "IService: cleaned up game room for user " << userId;
 }
 
 void IService::handleRedisMessage(int channel, const string &message){
@@ -102,9 +128,9 @@ void IService::handleRedisMessage(int channel, const string &message){
     if(conn != nullptr)
     {
         LOG_DEBUG << "handleRedisMessage: channel=" << channel << ", message=" << message;
-        conn->send(message);
+        conn->send(encodeMessage(message));
         return;
     }
     // 存储该用户的离线消息
     _offLineMsgModel.insert(channel, message);
-}
+} 

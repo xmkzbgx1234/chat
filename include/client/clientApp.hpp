@@ -18,6 +18,8 @@ private:
     bool initStorage();
     bool connectServer(const std::string &ip, int port);
     void closeConnection();
+    bool recvExact(void *buffer, std::size_t size);
+    bool recvJson(nlohmann::json &js);
     void startupMenu();
     bool login();
     bool registerUser();

@@ -18,6 +18,9 @@
 #include "friendService.hpp"
 #include "authService.hpp"
 #include "onlineUserManager.hpp"
+#include "gameService.hpp"
+#include "gameRoomManager.hpp"
+#include "gameRecordModel.hpp"
 
 using MsgHandler = std::function<void(const muduo::net::TcpConnectionPtr& conn, nlohmann::json &js, muduo::Timestamp time)>;
 
@@ -31,6 +34,7 @@ public:
     void ClientCloseException(const muduo::net::TcpConnectionPtr& conn);
     void reset(); // 重置服务状态
     void handleRedisMessage(int channel, const std::string &message);
+    void handleUserDisconnect(int userId); // 用户断线/登出时的游戏房间清理
 
 private:
     IService();
@@ -62,6 +66,11 @@ private:
     GroupService _groupService;
     FriendService _friendService;
     AuthService _authService;
+
+    // 游戏模块
+    GameRoomManager& _gameRoomManager;
+    GameRecordModel _gameRecordModel;
+    GameService _gameService;
 };
 
 
